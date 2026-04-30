@@ -2,10 +2,6 @@
   "version": 2,
   "builds": [
     {
-      "src": "dist/**",
-      "use": "@vercel/static"
-    },
-    {
       "src": "api/index.js",
       "use": "@vercel/node"
     }
@@ -21,5 +17,10 @@
     }
   ],
   "installCommand": "npm install",
-  "buildCommand": "npm run build"
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "backend/database.db",
+      "includeFiles": "backend/templates/**"
+    }
+  }
 }
