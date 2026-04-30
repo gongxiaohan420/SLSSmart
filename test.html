@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API测试</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+  <div class="bg-white rounded-lg shadow-lg p-8 max-w-2xl w-full">
+    <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">API连接测试</h1>
+    
+    <div class="space-y-4">
+      <div>
+        <h2 class="text-lg font-medium text-gray-900 mb-2">1. 测试后端状态</h2>
+        <button onclick="testStatus()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">测试状态API</button>
+        <div id="status-result" class="mt-2 text-sm"></div>
+      </div>
+      
+      <div>
+        <h2 class="text-lg font-medium text-gray-900 mb-2">2. 测试登录API</h2>
+        <button onclick="testLogin()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">测试登录API</button>
+        <div id="login-result" class="mt-2 text-sm"></div>
+      </div>
+      
+      <div>
+        <h2 class="text-lg font-medium text-gray-900 mb-2">3. 测试客户API</h2>
+        <button onclick="testCustomers()" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded">测试客户API</button>
+        <div id="customers-result" class="mt-2 text-sm"></div>
+      </div>
+    </div>
+    
+    <div class="mt-6 p-4 bg-gray-50 rounded">
+      <h3 class="font-medium text-gray-900 mb-2">当前环境信息：</h3>
+      <p id="env-info" class="text-sm text-gray-600"></p>
+    </div>
+  </div>
+
+  <script>
+    // 显示环境信息
+    document.getElementById('env-info').innerHTML = `
+      前端地址: ${window.location.origin}<br>
+      后端地址: http://localhost:4000<br>
+      用户代理: ${navigator.userAgent}
+    `;
+
+    // 测试状态API
+    async function testStatus() {
+      const resultDiv = document.getElementById('status-result');
+      resultDiv.innerHTML = '测试中...';
+      
+      try {
+        const response = await fetch('http://localhost:4000/api/status');
+        const data = await response.json();
+        resultDiv.innerHTML = `<span class="text-green-600">✓ 成功:</span> ${JSON.stringify(data)}`;
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="text-red-600">✗ 失败:</span> ${error.message}`;
+      }
+    }
+
+    // 测试登录API
+    async function testLogin() {
+      const resultDiv = document.getElementById('login-result');
+      resultDiv.innerHTML = '测试中...';
+      
+      try {
+        const response = await fetch('http://localhost:4000/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ username: 'sales', password: 'sales123' })
+        });
+        const data = await response.json();
+        resultDiv.innerHTML = `<span class="text-green-600">✓ 成功:</span> ${JSON.stringify(data)}`;
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="text-red-600">✗ 失败:</span> ${error.message}`;
+      }
+    }
+
+    // 测试客户API
+    async function testCustomers() {
+      const resultDiv = document.getElementById('customers-result');
+      resultDiv.innerHTML = '测试中...';
+      
+      try {
+        const response = await fetch('http://localhost:4000/api/customers', {
+          headers: {
+            'username': 'sales',
+            'password': 'sales123'
+          }
+        });
+        const data = await response.json();
+        resultDiv.innerHTML = `<span class="text-green-600">✓ 成功:</span> 找到 ${data.length} 条客户记录`;
+      } catch (error) {
+        resultDiv.innerHTML = `<span class="text-red-600">✗ 失败:</span> ${error.message}`;
+      }
+    }
+  </script>
+</body>
+</html>

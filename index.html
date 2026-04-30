@@ -1,0 +1,2214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>采购管理系统</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+  <!-- 顶部导航 -->
+  <nav class="bg-gray-800 text-white px-6 py-4">
+    <div class="flex justify-between items-center">
+      <h1 class="text-xl font-bold">采购管理系统</h1>
+      <div class="flex items-center space-x-4">
+        <span id="user-info" class="text-sm">用户：</span>
+        <button onclick="logout()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">退出登录</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 侧边栏 -->
+  <div class="flex">
+    <aside class="w-64 bg-gray-200 min-h-screen p-4">
+      <div class="space-y-2">
+        <button onclick="loadPurchaseOrderList()" class="w-full text-left px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">采购单管理</button>
+        <button onclick="loadPIList()" class="w-full text-left px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">销售报价单管理</button>
+        <button onclick="loadSupplierList()" class="w-full text-left px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">供应商管理</button>
+        <button onclick="loadProductList()" class="w-full text-left px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">产品管理</button>
+        <button onclick="loadCustomerList()" class="w-full text-left px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">客户管理</button>
+        <button onclick="loadInventoryList()" class="w-full text-left px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">库存管理</button>
+      </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="flex-1 p-6">
+      <div class="bg-white rounded-lg shadow">
+        <div class="flex justify-between items-center px-6 py-4 border-b">
+          <h2 id="table-title" class="text-lg font-semibold">采购单管理</h2>
+          <div id="action-buttons"></div>
+        </div>
+        <div id="table-container" class="p-6">
+          加载中...
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let currentTable = 'purchaseOrders';
+    let expandedPiGroups = new Set();
+
+    // 检查登录状态
+    function checkLogin() {
+      const user = localStorage.getItem('user');
+      if (!user) {
+        window.location.href = 'login.html';
+        return null;
+      }
+      return JSON.parse(user);
+    }
+
+    // 退出登录
+    function logout() {
+      localStorage.removeItem('user');
+      window.location.href = 'login.html';
+    }
+
+    // 更新用户信息显示
+    function updateUserInfo() {
+      const user = checkLogin();
+      if (user) {
+        document.getElementById('user-info').textContent = `用户：${user.username} (${user.role})`;
+      }
+    }
+
+    // 生成采购单编号
+    function generatePurchaseOrderNumber() {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
+      return `CG${year}${month}${day}${random}`;
+    }
+
+    // 加载采购单列表
+    async function loadPurchaseOrderList() {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/purchase-orders', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          renderPurchaseOrderList(data);
+        } else {
+          alert('获取采购单列表失败：' + data.error);
+        }
+      } catch (error) {
+        alert('加载采购单失败：' + error.message);
+      }
+    }
+
+    // 加载供应商列表
+    async function loadSupplierList() {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/suppliers', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          renderSupplierList(data);
+        } else {
+          alert('获取供应商列表失败：' + data.error);
+        }
+      } catch (error) {
+        alert('加载供应商失败：' + error.message);
+      }
+    }
+
+    // 渲染供应商列表
+    function renderSupplierList(suppliers) {
+      const tableContainer = document.getElementById('table-container');
+      let searchHTML = '<div class="mb-4 flex items-center"><input type="text" id="supplier-search" placeholder="搜索..." class="px-3 py-2 border border-gray-300 rounded-md mr-2 w-64"><button onclick="searchSuppliers()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">搜索</button><button onclick="clearSupplierSearch()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded ml-2">清空</button></div>';
+      
+      let html = searchHTML + '<table class="min-w-full border border-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">供应商ID</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">供应商名称</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">公司类型</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">主营产品</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">联系人</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">联系方式</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">操作</th></tr></thead><tbody class="divide-y divide-gray-200">';
+      
+      for (const item of suppliers) {
+        html += '<tr><td class="px-6 py-3 text-sm text-gray-900">' + item.id + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.name + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.companyType + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.mainProducts + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.contact + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.contactInfo + '</td><td class="px-6 py-3 text-sm"><button onclick="editSupplier(\'' + item.id + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">编辑</button><button onclick="showSupplierAttachments(\'' + item.id + '\')" class="text-purple-600 hover:text-purple-900 mr-2 text-xs">附件</button><button onclick="deleteSupplier(\'' + item.id + '\')" class="text-red-600 hover:text-red-900 text-xs">删除</button></td></tr>';
+      }
+      
+      html += '</tbody></table><div class="mt-4 flex justify-between items-center"><div class="text-sm text-gray-500">共 ' + suppliers.length + ' 条记录</div></div>';
+      
+      tableContainer.innerHTML = html;
+      document.getElementById('table-title').textContent = '供应商管理';
+      document.getElementById('action-buttons').innerHTML = '<button onclick="createSupplier()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">新增供应商</button><button onclick="showImportModal(\'suppliers\')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">导入供应商</button>';
+      currentTable = 'suppliers';
+    }
+
+    // 加载产品列表
+    async function loadProductList() {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/products', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          renderProductList(data);
+        } else {
+          alert('获取产品列表失败：' + data.error);
+        }
+      } catch (error) {
+        alert('加载产品失败：' + error.message);
+      }
+    }
+
+    // 渲染产品列表
+    function renderProductList(products) {
+      const tableContainer = document.getElementById('table-container');
+      let searchHTML = '<div class="mb-4 flex items-center"><input type="text" id="product-search" placeholder="搜索..." class="px-3 py-2 border border-gray-300 rounded-md mr-2 w-64"><button onclick="searchProducts()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">搜索</button><button onclick="clearProductSearch()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded ml-2">清空</button></div>';
+      
+      let html = searchHTML + '<table class="min-w-full border border-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">产品ID</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">英文名称</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">中文名称</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">销售价(≤100)</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">销售价(>100)</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">供应商</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">采购价</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">操作</th></tr></thead><tbody class="divide-y divide-gray-200">';
+      
+      for (const item of products) {
+        const purchasePrice = item.purchasePrice || item.purchasePriceLess100 || 0;
+        html += '<tr><td class="px-6 py-3 text-sm text-gray-900">' + item.id + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.englishName + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.chineseName + '</td><td class="px-6 py-3 text-sm text-gray-900">¥' + item.salesPriceLess100 + '</td><td class="px-6 py-3 text-sm text-gray-900">¥' + item.salesPriceMore100 + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.supplierName + '</td><td class="px-6 py-3 text-sm text-gray-900">¥' + purchasePrice + '</td><td class="px-6 py-3 text-sm"><button onclick="editProduct(\'' + item.id + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">编辑</button><button onclick="deleteProduct(\'' + item.id + '\')" class="text-red-600 hover:text-red-900 text-xs">删除</button></td></tr>';
+      }
+      
+      html += '</tbody></table><div class="mt-4 flex justify-between items-center"><div class="text-sm text-gray-500">共 ' + products.length + ' 条记录</div></div>';
+      
+      tableContainer.innerHTML = html;
+      document.getElementById('table-title').textContent = '产品管理';
+      document.getElementById('action-buttons').innerHTML = '<button onclick="createProduct()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">新增产品</button><button onclick="importProducts()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">导入产品</button>';
+      currentTable = 'products';
+    }
+
+    // 加载客户列表
+    async function loadCustomerList() {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/customers', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          renderCustomerList(data);
+        } else {
+          alert('获取客户列表失败：' + data.error);
+        }
+      } catch (error) {
+        alert('加载客户失败：' + error.message);
+      }
+    }
+
+    // 渲染客户列表
+    function renderCustomerList(customers) {
+      const tableContainer = document.getElementById('table-container');
+      let searchHTML = '<div class="mb-4 flex items-center"><input type="text" id="customer-search" placeholder="搜索..." class="px-3 py-2 border border-gray-300 rounded-md mr-2 w-64"><button onclick="searchCustomers()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">搜索</button><button onclick="clearCustomerSearch()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded ml-2">清空</button></div>';
+      
+      let html = searchHTML + '<table class="min-w-full border border-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">客户ID</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">公司名称</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">公司简称</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">联系人</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">国家</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">公司规模</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">操作</th></tr></thead><tbody class="divide-y divide-gray-200">';
+      
+      for (const item of customers) {
+        html += '<tr><td class="px-6 py-3 text-sm text-gray-900">' + item.id + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.companyName + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.companyShortName + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.contact + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.country + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.companySize + '</td><td class="px-6 py-3 text-sm"><button onclick="editCustomer(\'' + item.id + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">编辑</button><button onclick="deleteCustomer(\'' + item.id + '\')" class="text-red-600 hover:text-red-900 text-xs">删除</button></td></tr>';
+      }
+      
+      html += '</tbody></table><div class="mt-4 flex justify-between items-center"><div class="text-sm text-gray-500">共 ' + customers.length + ' 条记录</div></div>';
+      
+      tableContainer.innerHTML = html;
+      document.getElementById('table-title').textContent = '客户管理';
+      document.getElementById('action-buttons').innerHTML = '<button onclick="createCustomer()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">新增客户</button><button onclick="showImportModal(\'customers\')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">导入客户</button>';
+      currentTable = 'customers';
+    }
+
+    // 加载库存列表
+    async function loadInventoryList() {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/inventory', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          renderInventoryList(data);
+        } else {
+          alert('获取库存列表失败：' + data.error);
+        }
+      } catch (error) {
+        alert('加载库存失败：' + error.message);
+      }
+    }
+
+    // 渲染库存列表
+    function renderInventoryList(inventory) {
+      const tableContainer = document.getElementById('table-container');
+      let searchHTML = '<div class="mb-4 flex items-center"><input type="text" id="inventory-search" placeholder="搜索..." class="px-3 py-2 border border-gray-300 rounded-md mr-2 w-64"><button onclick="searchInventory()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">搜索</button><button onclick="clearInventorySearch()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded ml-2">清空</button></div>';
+      
+      let html = searchHTML + '<table class="min-w-full border border-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">产品ID</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">英文名称</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">中文名称</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">库存数量</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">仓库</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">操作</th></tr></thead><tbody class="divide-y divide-gray-200">';
+      
+      for (const item of inventory) {
+        html += '<tr><td class="px-6 py-3 text-sm text-gray-900">' + item.productId + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.englishName + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.chineseName + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.quantity + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.warehouse + '</td><td class="px-6 py-3 text-sm"><button onclick="editInventory(\'' + item.productId + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">编辑</button><button onclick="deleteInventory(\'' + item.productId + '\')" class="text-red-600 hover:text-red-900 text-xs">删除</button></td></tr>';
+      }
+      
+      html += '</tbody></table><div class="mt-4 flex justify-between items-center"><div class="text-sm text-gray-500">共 ' + inventory.length + ' 条记录</div></div>';
+      
+      tableContainer.innerHTML = html;
+      document.getElementById('table-title').textContent = '库存管理';
+      document.getElementById('action-buttons').innerHTML = '<button onclick="createInventory()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">新增库存</button><button onclick="importInventory()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">导入库存</button>';
+      currentTable = 'inventory';
+    }
+
+    // 渲染采购单列表（级联树形结构）
+    function renderPurchaseOrderList(purchaseOrders) {
+      const tableContainer = document.getElementById('table-container');
+      
+      // 按PI单号分组
+      const groupedByPi = purchaseOrders.reduce((acc, order) => {
+        const piId = order.piId || '无PI编号';
+        if (!acc[piId]) {
+          acc[piId] = [];
+        }
+        acc[piId].push(order);
+        return acc;
+      }, {});
+      
+      // 将PI分组转换为数组并按创建时间倒序排列
+      const sortedPiGroups = Object.entries(groupedByPi).sort((a, b) => {
+        const piA = a[1][0];
+        const piB = b[1][0];
+        return new Date(piB.created_at) - new Date(piA.created_at);
+      });
+      
+      let searchHTML = '<div class="mb-4 flex items-center"><input type="text" id="purchase-orders-search" placeholder="搜索..." class="px-3 py-2 border border-gray-300 rounded-md mr-2 w-64"><button onclick="searchPurchaseOrders()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">搜索</button><button onclick="clearPurchaseOrdersSearch()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded ml-2">清空</button></div>';
+      
+      let treeHTML = searchHTML + '<div class="space-y-2">';
+      
+      for (const [piId, orders] of sortedPiGroups) {
+        const safePiId = piId.replace(/[^a-zA-Z0-9]/g, '_');
+        
+        // 获取PI信息（从第一个订单获取）
+        const firstOrder = orders[0];
+        const piCustomer = firstOrder.piCustomerName || '未知客户';
+        const piAmount = firstOrder.piTotalAmount || 0;
+        const piDate = firstOrder.piCreatedAt ? new Date(firstOrder.piCreatedAt).toLocaleDateString() : '未知时间';
+        
+        treeHTML += '<div class="bg-blue-50 border border-blue-200 rounded-lg overflow-hidden">';
+        treeHTML += '<div class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-blue-100" onclick="togglePiGroup(\'' + safePiId + '\')">';
+        treeHTML += '<div class="flex items-center">';
+        treeHTML += '<span id="pi-icon-' + safePiId + '" class="mr-2 text-blue-600">&#9654;</span>';
+        treeHTML += '<span class="font-semibold text-blue-800">PI单号: ' + piId + '</span>';
+        treeHTML += '<span class="ml-2 text-sm text-blue-600">(' + orders.length + ' 条采购单)</span>';
+        treeHTML += '</div>';
+        treeHTML += '<div class="flex items-center space-x-6 text-sm">';
+        treeHTML += '<span class="text-gray-600"><span class="font-medium">客户:</span> ' + piCustomer + '</span>';
+        treeHTML += '<span class="text-gray-600"><span class="font-medium">总金额:</span> ¥' + piAmount + '</span>';
+        treeHTML += '<span class="text-gray-600"><span class="font-medium">下单时间:</span> ' + piDate + '</span>';
+        treeHTML += '<span class="text-gray-400">点击展开/收起</span>';
+        treeHTML += '</div>';
+        treeHTML += '</div>';
+        treeHTML += '<div id="pi-group-' + safePiId + '" class="hidden">';
+        treeHTML += '<div class="bg-white border-t border-blue-100">';
+        treeHTML += '<table class="min-w-full">';
+        treeHTML += '<thead class="bg-gray-50">';
+        treeHTML += '<tr>';
+        treeHTML += '<th class="px-6 py-2 text-left text-xs font-medium text-gray-500">采购单编号</th>';
+        treeHTML += '<th class="px-6 py-2 text-left text-xs font-medium text-gray-500">供应商</th>';
+        treeHTML += '<th class="px-6 py-2 text-left text-xs font-medium text-gray-500">商品数量</th>';
+        treeHTML += '<th class="px-6 py-2 text-left text-xs font-medium text-gray-500">总金额</th>';
+        treeHTML += '<th class="px-6 py-2 text-left text-xs font-medium text-gray-500">状态</th>';
+        treeHTML += '<th class="px-6 py-2 text-left text-xs font-medium text-gray-500">创建日期</th>';
+        treeHTML += '<th class="px-6 py-2 text-left text-xs font-medium text-gray-500">操作</th>';
+        treeHTML += '</tr>';
+        treeHTML += '</thead>';
+        treeHTML += '<tbody class="divide-y divide-gray-200">';
+        
+        for (const item of orders) {
+          let actions = '';
+          const itemId = item.id;
+          
+          switch (item.status) {
+            case '已生成':
+              actions = '<button onclick="viewPurchaseOrderDetail(\'' + itemId + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">详情</button><button onclick="editPurchaseOrder(\'' + itemId + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">编辑</button><button onclick="updatePurchaseOrderStatus(\'' + itemId + '\', \'采购中\')" class="text-green-600 hover:text-green-900 mr-2 text-xs">开始采购</button><button onclick="exportPurchaseOrder(\'' + itemId + '\')" class="text-orange-600 hover:text-orange-900 text-xs">导出</button>';
+              break;
+            case '采购中':
+              actions = '<button onclick="viewPurchaseOrderDetail(\'' + itemId + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">详情</button><button onclick="updatePurchaseOrderStatus(\'' + itemId + '\', \'采购完成\')" class="text-green-600 hover:text-green-900 mr-2 text-xs">采购完成</button><button onclick="exportPurchaseOrder(\'' + itemId + '\')" class="text-orange-600 hover:text-orange-900 text-xs">导出</button>';
+              break;
+            case '采购完成':
+              actions = '<button onclick="viewPurchaseOrderDetail(\'' + itemId + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">详情</button><button onclick="updatePurchaseOrderStatus(\'' + itemId + '\', \'供应商发货\')" class="text-green-600 hover:text-green-900 mr-2 text-xs">供应商发货</button><button onclick="exportPurchaseOrder(\'' + itemId + '\')" class="text-orange-600 hover:text-orange-900 text-xs">导出</button>';
+              break;
+            case '供应商发货':
+              actions = '<button onclick="viewPurchaseOrderDetail(\'' + itemId + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">详情</button><button onclick="addTrackingNumber(\'' + itemId + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">添加快递单号</button><button onclick="updatePurchaseOrderStatus(\'' + itemId + '\', \'待开票\')" class="text-green-600 hover:text-green-900 mr-2 text-xs">待开票</button><button onclick="exportPurchaseOrder(\'' + itemId + '\')" class="text-orange-600 hover:text-orange-900 text-xs">导出</button>';
+              break;
+            case '待开票':
+              actions = '<button onclick="viewPurchaseOrderDetail(\'' + itemId + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">详情</button><button onclick="updatePurchaseOrderStatus(\'' + itemId + '\', \'已完成\')" class="text-green-600 hover:text-green-900 mr-2 text-xs">完成</button><button onclick="exportPurchaseOrder(\'' + itemId + '\')" class="text-orange-600 hover:text-orange-900 text-xs">导出</button>';
+              break;
+            case '已完成':
+              actions = '<button onclick="viewPurchaseOrderDetail(\'' + itemId + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">详情</button><button onclick="exportPurchaseOrder(\'' + itemId + '\')" class="text-orange-600 hover:text-orange-900 text-xs">导出</button>';
+              break;
+            default:
+              actions = '<button onclick="viewPurchaseOrderDetail(\'' + itemId + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">详情</button><button onclick="editPurchaseOrder(\'' + itemId + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">编辑</button><button onclick="deletePurchaseOrder(\'' + itemId + '\')" class="text-red-600 hover:text-red-900 mr-2 text-xs">删除</button><button onclick="exportPurchaseOrder(\'' + itemId + '\')" class="text-green-600 hover:text-green-900 text-xs">导出</button>';
+          }
+          
+          const productCount = item.products && item.products.length ? item.products.length : 0;
+          
+          treeHTML += '<tr><td class="px-6 py-3 text-sm text-gray-900">' + item.id + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.supplierName + '</td><td class="px-6 py-3 text-sm text-gray-900">' + productCount + ' 种</td><td class="px-6 py-3 text-sm text-gray-900">¥' + item.totalAmount + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.status + '</td><td class="px-6 py-3 text-sm text-gray-900">' + new Date(item.created_at).toLocaleDateString() + '</td><td class="px-6 py-3 text-sm">' + actions + '</td></tr>';
+        }
+        
+        treeHTML += '</tbody></table></div></div></div>';
+      }
+      
+      treeHTML += '</div><div class="mt-4 flex justify-between items-center"><div class="text-sm text-gray-500">共 ' + purchaseOrders.length + ' 条采购单，' + Object.keys(groupedByPi).length + ' 个PI单号</div></div>';
+      
+      tableContainer.innerHTML = treeHTML;
+      document.getElementById('table-title').textContent = '采购单管理';
+      document.getElementById('action-buttons').innerHTML = '<button onclick="createPurchaseOrder()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">新增采购单</button><button onclick="generateFromPI()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">从PI生成采购单</button>';
+      currentTable = 'purchaseOrders';
+      
+      // 恢复之前展开的PI分组
+      expandedPiGroups.forEach(piId => {
+        const groupElement = document.getElementById('pi-group-' + piId);
+        const iconElement = document.getElementById('pi-icon-' + piId);
+        if (groupElement && iconElement) {
+          groupElement.classList.remove('hidden');
+          iconElement.innerHTML = '&#9660;';
+        }
+      });
+    }
+    
+    // 切换PI分组展开/收起
+    function togglePiGroup(piId) {
+      const groupElement = document.getElementById('pi-group-' + piId);
+      const iconElement = document.getElementById('pi-icon-' + piId);
+      
+      if (groupElement && iconElement) {
+        if (groupElement.classList.contains('hidden')) {
+          groupElement.classList.remove('hidden');
+          iconElement.innerHTML = '&#9660;';
+          expandedPiGroups.add(piId);
+        } else {
+          groupElement.classList.add('hidden');
+          iconElement.innerHTML = '&#9654;';
+          expandedPiGroups.delete(piId);
+        }
+      }
+    }
+
+    // 搜索采购单
+    async function searchPurchaseOrders() {
+      const user = checkLogin();
+      if (!user) return;
+
+      const searchTerm = document.getElementById('purchase-orders-search').value.trim();
+      if (!searchTerm) {
+        loadPurchaseOrderList();
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/purchase-orders?search=' + encodeURIComponent(searchTerm), {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          renderPurchaseOrderList(data);
+        } else {
+          alert('搜索失败：' + data.error);
+        }
+      } catch (error) {
+        alert('搜索失败：' + error.message);
+      }
+    }
+
+    // 清空搜索
+    function clearPurchaseOrdersSearch() {
+      document.getElementById('purchase-orders-search').value = '';
+      loadPurchaseOrderList();
+    }
+
+    // 查看采购单详情
+    async function viewPurchaseOrderDetail(id) {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/purchase-orders/' + id, {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const purchaseOrder = await response.json();
+        if (!response.ok) {
+          alert('获取采购单信息失败：' + purchaseOrder.error);
+          return;
+        }
+
+        // 获取供应商信息
+        const supplierResponse = await fetch('/api/suppliers/' + purchaseOrder.supplierId, {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const supplier = await supplierResponse.json();
+
+        // 获取产品库存信息
+        const inventoryResponse = await fetch('/api/inventory', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        const inventoryList = await inventoryResponse.json();
+
+        // 获取设置的提醒
+        const remindersResponse = await fetch('/api/reminders/' + id, {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        const reminders = await remindersResponse.json();
+
+        // 获取提醒日志
+        const logsResponse = await fetch('/api/purchase-orders/' + id + '/reminder-logs', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        const reminderLogs = await logsResponse.json();
+
+        // 获取同PI的其他采购单列表
+        let siblingOrders = [];
+        if (purchaseOrder.piId) {
+          const siblingResponse = await fetch('/api/purchase-orders/by-pi/' + purchaseOrder.piId, {
+            headers: {
+              'username': user.username,
+              'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+            }
+          });
+          siblingOrders = await siblingResponse.json();
+          siblingOrders = siblingOrders.filter(order => order.id !== id);
+        }
+
+        // 构建商品信息列表
+        let productListHTML = purchaseOrder.products.map((product, index) => {
+          const inventory = inventoryList.find(i => i.productId === product.productId);
+          return '<div class="border-b border-gray-200 py-4" data-index="' + index + '"><div class="grid grid-cols-9 gap-4"><div><label class="block text-xs text-gray-500">商品ID</label><input type="text" value="' + (product.productId || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">商品中文名</label><input type="text" value="' + (product.chineseName || product.productName || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">商品英文名</label><input type="text" value="' + (product.englishName || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">购买数量</label><input type="text" value="' + (product.quantity || 0) + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">采购价格</label><input type="number" value="' + (product.unitPrice || 0) + '" step="0.01" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">采购链接</label><a href="' + (product.purchaseLink || '#') + '" target="_blank" class="block px-2 py-1 text-sm text-blue-600 hover:text-blue-800 truncate">' + (product.purchaseLink || '无') + '</a></div><div><label class="block text-xs text-gray-500">采购运费</label><input type="number" value="' + (product.shippingFee || 0) + '" step="0.01" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">查看历史价格</label><button onclick="viewProductHistory(\'' + product.productId + '\')" class="w-full px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">查看</button></div><div><label class="block text-xs text-gray-500">商品库存</label><input type="number" value="' + (inventory ? inventory.quantity : 0) + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div></div><div class="mt-2 text-right text-sm text-gray-500">小计: ¥' + (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee || 0)).toFixed(2)) + '</div></div>';
+        }).join('');
+
+        // 构建待提醒列表（来自reminders表）
+        let pendingRemindersHTML = reminders.length > 0 ? reminders.map(reminder => '<div class="border-b border-gray-200 py-3"><div class="flex justify-between items-start"><div><div class="text-sm font-medium text-gray-900">提醒时间: ' + new Date(reminder.reminderTime).toLocaleString() + '</div><div class="text-xs text-gray-500 mt-1">邮箱: ' + (reminder.email || '未设置') + '</div></div><div class="flex items-center space-x-2"><span class="px-2 py-1 text-xs rounded ' + (reminder.status === '待提醒' ? 'bg-yellow-100 text-yellow-800' : reminder.status === '已提醒' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800') + '">' + (reminder.status || '待提醒') + '</span><button onclick="editReminder(\'' + reminder.id + '\', \'' + purchaseOrder.id + '\')" class="text-blue-600 hover:text-blue-900 text-xs">编辑</button><button onclick="deleteReminder(\'' + reminder.id + '\', \'' + purchaseOrder.id + '\')" class="text-red-600 hover:text-red-900 text-xs">删除</button></div></div><div class="mt-2 text-sm text-gray-700">' + (reminder.content || '无内容') + '</div></div>').join('') : '<div class="text-center py-4 text-gray-500">暂无设置的提醒</div>';
+
+        // 构建提醒日志列表（来自reminderLogs表，已发送的）
+        let reminderLogsHTML = reminderLogs.length > 0 ? reminderLogs.map(log => '<div class="border-b border-gray-200 py-3"><div class="flex justify-between items-start"><div><div class="text-sm font-medium text-gray-900">' + new Date(log.sentTime || log.created_at).toLocaleString() + '</div><div class="text-xs text-gray-500 mt-1">发送邮箱: ' + (log.email || '未设置') + '</div></div><span class="px-2 py-1 text-xs rounded ' + (log.status === '成功' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800') + '">' + (log.status || '未知') + '</span></div><div class="mt-2 text-sm text-gray-700">' + (log.content || '无内容') + '</div>' + (log.error ? '<div class="mt-1 text-xs text-red-600">错误信息: ' + log.error + '</div>' : '') + '</div>').join('') : '<div class="text-center py-4 text-gray-500">暂无发送记录</div>';
+
+        // 详情页HTML
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">采购单详情 - ' + purchaseOrder.id + '</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="border-b border-gray-200"><nav class="flex"><button onclick="switchTab(\'basic-info\')" id="tab-basic-info" class="px-6 py-3 font-medium text-blue-600 border-b-2 border-blue-600">基础信息</button><button onclick="switchTab(\'reminder-info\')" id="tab-reminder-info" class="px-6 py-3 font-medium text-gray-500 hover:text-gray-700">提醒日志</button></nav></div><div class="p-6"><div id="content-basic-info" class="tab-content"><div class="bg-blue-50 rounded-lg p-4 mb-6"><h4 class="font-medium text-gray-900 mb-3">采购单信息</h4><div class="grid grid-cols-4 gap-4"><div><span class="text-sm text-gray-500">采购单编号：</span><span class="text-sm font-medium">' + purchaseOrder.id + '</span></div><div><span class="text-sm text-gray-500">关联PI编号：</span><span class="text-sm font-medium">' + (purchaseOrder.piId || '无') + '</span></div><div><span class="text-sm text-gray-500">状态：</span><span class="text-sm font-medium">' + purchaseOrder.status + '</span></div><div><span class="text-sm text-gray-500">总金额：</span><span class="text-sm font-medium">¥' + (purchaseOrder.totalAmount || 0) + '</span></div><div><span class="text-sm text-gray-500">创建日期：</span><span class="text-sm font-medium">' + new Date(purchaseOrder.created_at).toLocaleString() + '</span></div><div><span class="text-sm text-gray-500">备注：</span><span class="text-sm font-medium">' + (purchaseOrder.purchaseNote || '无') + '</span></div></div></div><div class="bg-green-50 rounded-lg p-4 mb-6"><h4 class="font-medium text-gray-900 mb-3">供应商信息</h4><div class="grid grid-cols-4 gap-4 mb-4"><div><span class="text-sm text-gray-500">供应商ID：</span><span class="text-sm font-medium">' + (supplier.id || '') + '</span></div><div><span class="text-sm text-gray-500">供应商名称：</span><span class="text-sm font-medium">' + (supplier.name || '') + '</span></div><div><span class="text-sm text-gray-500">是否能开普通发票：</span><span class="text-sm font-medium">' + (supplier.canInvoice || '') + '</span></div><div><span class="text-sm text-gray-500">开票起点：</span><span class="text-sm font-medium">' + (supplier.invoiceThreshold || 0) + '</span></div><div><span class="text-sm text-gray-500">开票状态：</span><span class="text-sm font-medium">' + (supplier.invoiceStatus || '未设置') + '</span><button onclick="updateSupplierInvoiceStatus(\'' + supplier.id + '\')" class="ml-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">更新</button></div><div><span class="text-sm text-gray-500">联系人：</span><span class="text-sm font-medium">' + (supplier.contact || '') + '</span></div><div><span class="text-sm text-gray-500">联系方式：</span><span class="text-sm font-medium">' + (supplier.contactInfo || '') + '</span></div><div><span class="text-sm text-gray-500">付款链接：</span><a href="' + (supplier.paymentLink || '#') + '" target="_blank" class="text-sm font-medium text-blue-600 hover:text-blue-800">' + (supplier.paymentLink || '无') + '</a></div></div><div class="border-t border-gray-200 pt-4 mt-4"><h5 class="font-medium text-gray-900 mb-2">快递信息</h5><div id="tracking-info-container">' + (purchaseOrder.trackingNumbers && purchaseOrder.trackingNumbers.length > 0 ? purchaseOrder.trackingNumbers.map((t, idx) => '<div class="flex items-center mb-2 space-x-2"><span class="text-sm text-gray-500">快递公司:</span><span class="text-sm font-medium">' + (t.company || '') + '</span><span class="text-sm text-gray-500 ml-2">快递单号:</span><input type="text" value="' + (t.number || t || '') + '" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded" readonly><button onclick="queryTrackingStatus(\'' + (t.company || '') + '\', \'' + (t.number || t || '') + '\')" class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">查询</button><button onclick="deleteTrackingNumber(\'' + purchaseOrder.id + '\', ' + idx + ')" class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">删除</button></div>').join('') : '<div class="text-sm text-gray-500">暂无快递信息</div>') + '</div></div></div><div class="bg-yellow-50 rounded-lg p-4 mb-6"><div class="flex justify-between items-center mb-3"><h4 class="font-medium text-gray-900">商品信息</h4><button onclick="saveProductInfo(\'' + purchaseOrder.id + '\')" class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600">保存</button></div><div class="bg-gray-50 rounded-lg p-3 mb-3"><div class="grid grid-cols-9 gap-2 font-medium text-sm text-gray-700"><div>商品ID</div><div>商品中文名</div><div>商品英文名</div><div>购买数量</div><div>采购价格</div><div>采购链接</div><div>采购运费</div><div>查看历史</div><div>商品库存</div></div></div><div id="product-list-container">' + productListHTML + '</div><div class="mt-3 text-right font-bold">总金额: ¥' + (purchaseOrder.totalAmount || 0) + '</div></div><div class="bg-purple-50 rounded-lg p-4"><h4 class="font-medium text-gray-900 mb-3">同PI采购单列表</h4>' + (siblingOrders.length > 0 ? '<div class="bg-white rounded-lg border border-gray-200"><table class="min-w-full"><thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">采购单编号</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">供应商</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">总金额</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">状态</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">操作</th></tr></thead><tbody class="divide-y divide-gray-200">' + siblingOrders.map(order => '<tr><td class="px-4 py-3 text-sm text-gray-900">' + order.id + '</td><td class="px-4 py-3 text-sm text-gray-900">' + order.supplierName + '</td><td class="px-4 py-3 text-sm text-gray-900">¥' + (order.totalAmount || 0) + '</td><td class="px-4 py-3 text-sm text-gray-900">' + order.status + '</td><td class="px-4 py-3 text-sm"><button onclick="closeModal();viewPurchaseOrderDetail(\'' + order.id + '\')" class="text-blue-600 hover:text-blue-900">详情</button></td></tr>').join('') + '</tbody></table></div>' : '<div class="text-sm text-gray-500">暂无同PI的其他采购单</div>') + '</div></div><div id="content-reminder-info" class="tab-content hidden"><div class="mb-6"><h4 class="font-medium text-gray-900 mb-3">设置的提醒</h4><div class="flex justify-end mb-2"><button onclick="addReminder(\'' + purchaseOrder.id + '\')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">设置提醒</button></div><div class="bg-gray-50 rounded-lg">' + pendingRemindersHTML + '</div></div><div><h4 class="font-medium text-gray-900 mb-3">发送日志</h4><div class="bg-gray-50 rounded-lg">' + reminderLogsHTML + '</div></div></div></div></div></div>';
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+      } catch (error) {
+        alert('加载采购单详情失败：' + error.message);
+      }
+    }
+
+    // 切换Tab
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+      });
+      document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+        tab.classList.remove('text-blue-600', 'border-blue-600');
+        tab.classList.add('text-gray-500');
+      });
+      document.getElementById('content-' + tabName).classList.remove('hidden');
+      document.getElementById('tab-' + tabName).classList.add('text-blue-600', 'border-blue-600');
+      document.getElementById('tab-' + tabName).classList.remove('text-gray-500');
+    }
+
+    // 关闭弹窗
+    function closeModal() {
+      const modal = document.getElementById('modal');
+      if (modal) {
+        modal.remove();
+      }
+    }
+
+    // 编辑采购单
+    async function editPurchaseOrder(id) {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/purchase-orders/' + id, {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const purchaseOrder = await response.json();
+        if (!response.ok) {
+          alert('获取采购单信息失败：' + purchaseOrder.error);
+          return;
+        }
+
+        // 获取供应商列表
+        const suppliersResponse = await fetch('/api/suppliers', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        const suppliers = await suppliersResponse.json();
+
+        let productsHTML = purchaseOrder.products.map((product, index) => {
+          return '<div class="border-b border-gray-200 py-4" data-index="' + index + '"><div class="grid grid-cols-5 gap-4"><div><label class="block text-xs text-gray-500">商品名称</label><input type="text" value="' + (product.chineseName || product.productName || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">购买数量</label><input type="number" value="' + (product.quantity || 0) + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded" onchange="updateProductQuantity(' + index + ')"></div><div><label class="block text-xs text-gray-500">采购价格</label><input type="number" value="' + (product.unitPrice || 0) + '" step="0.01" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">采购链接</label><input type="text" value="' + (product.purchaseLink || '') + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">操作</label><button onclick="removeProduct(' + index + ')" class="text-red-600 hover:text-red-900">删除</button></div></div><div class="mt-2 text-right text-sm text-gray-500">小计: ¥' + ((product.unitPrice || 0) * (product.quantity || 0)).toFixed(2) + '</div></div>';
+        }).join('');
+
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑采购单 - ' + purchaseOrder.id + '</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商</label><select id="edit-supplier-select" class="w-full px-3 py-2 border border-gray-300 rounded-md">';
+        
+        suppliers.forEach(s => {
+          modalHTML += '<option value="' + s.id + '" ' + (s.id === purchaseOrder.supplierId ? 'selected' : '') + '>' + s.name + '</option>';
+        });
+        
+        modalHTML += '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="edit-purchase-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3">' + (purchaseOrder.purchaseNote || '') + '</textarea></div><div class="mb-6"><h4 class="font-medium text-gray-900 mb-3">商品列表</h4><div id="edit-product-list">' + productsHTML + '</div></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveEditPurchaseOrder(\'' + purchaseOrder.id + '\')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+      } catch (error) {
+        alert('编辑采购单失败：' + error.message);
+      }
+    }
+
+    // 保存编辑采购单
+    async function saveEditPurchaseOrder(id) {
+      const user = checkLogin();
+      if (!user) return;
+
+      const supplierId = document.getElementById('edit-supplier-select').value;
+      const note = document.getElementById('edit-purchase-note').value;
+
+      try {
+        const response = await fetch('/api/purchase-orders/' + id, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: JSON.stringify({ supplierId, note })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('采购单更新成功');
+          closeModal();
+          loadPurchaseOrderList();
+        } else {
+          alert('更新失败：' + data.error);
+        }
+      } catch (error) {
+        alert('更新失败：' + error.message);
+      }
+    }
+
+    // 删除采购单
+    async function deletePurchaseOrder(id) {
+      if (!confirm('确定要删除该采购单吗？')) {
+        return;
+      }
+
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/purchase-orders/' + id, {
+          method: 'DELETE',
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('采购单删除成功');
+          loadPurchaseOrderList();
+        } else {
+          alert('删除失败：' + data.error);
+        }
+      } catch (error) {
+        alert('删除失败：' + error.message);
+      }
+    }
+
+    // 更新采购单状态
+    async function updatePurchaseOrderStatus(id, status) {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/purchase-orders/' + id + '/status', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: JSON.stringify({ status })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('状态更新成功');
+          loadPurchaseOrderList();
+        } else {
+          alert('更新失败：' + data.error);
+        }
+      } catch (error) {
+        alert('更新失败：' + error.message);
+      }
+    }
+
+    // 添加快递单号
+    async function addTrackingNumber(id) {
+      const companies = ['顺丰速运', '圆通快递', '中通快递', '韵达快递', '申通快递', '极兔速递', '邮政EMS', '京东物流', '德邦快递', '其他'];
+      let companyOptions = companies.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+      
+      let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white max-w-lg mx-auto mt-20 rounded-lg shadow-xl"><div class="bg-gray-800 text-white px-6 py-4 rounded-t-lg"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">添加快递信息</h3><button onclick="closeModal()" class="text-white hover:text-gray-300">&times;</button></div></div><div class="p-6"><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">快递公司</label><select id="tracking-company" class="w-full px-3 py-2 border border-gray-300 rounded-md"><option value="">请选择快递公司</option>' + companyOptions + '</select></div><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">快递单号</label><input type="text" id="tracking-number" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="请输入快递单号"></div><div class="flex justify-end space-x-4 mt-6"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveTrackingNumber(\'' + id + '\')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    async function saveTrackingNumber(id) {
+      const company = document.getElementById('tracking-company').value;
+      const number = document.getElementById('tracking-number').value.trim();
+      
+      if (!company) {
+        alert('请选择快递公司');
+        return;
+      }
+      if (!number) {
+        alert('请输入快递单号');
+        return;
+      }
+
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/purchase-orders/' + id + '/tracking', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: JSON.stringify({ trackingInfo: { company, number } })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('快递信息添加成功');
+          closeModal();
+          viewPurchaseOrderDetail(id);
+        } else {
+          alert('添加失败：' + data.error);
+        }
+      } catch (error) {
+        alert('添加失败：' + error.message);
+      }
+    }
+
+    async function deleteTrackingNumber(purchaseOrderId, index) {
+      if (!confirm('确定要删除这条快递信息吗？')) return;
+
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/purchase-orders/' + purchaseOrderId + '/tracking/' + index, {
+          method: 'DELETE',
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('删除成功');
+          viewPurchaseOrderDetail(purchaseOrderId);
+        } else {
+          alert('删除失败：' + data.error);
+        }
+      } catch (error) {
+        alert('删除失败：' + error.message);
+      }
+    }
+
+    function queryTrackingStatus(company, number) {
+      const queryUrl = 'https://www.kuaidi100.com/query?type=' + getCompanyCode(company) + '&postid=' + number;
+      window.open(queryUrl, '_blank');
+    }
+
+    function getCompanyCode(company) {
+      const codeMap = {
+        '顺丰速运': 'shunfeng',
+        '圆通快递': 'yuantong',
+        '中通快递': 'zhongtong',
+        '韵达快递': 'yunda',
+        '申通快递': 'shentong',
+        '极兔速递': 'jtexpress',
+        '邮政EMS': 'ems',
+        '京东物流': 'jd',
+        '德邦快递': 'debangkd'
+      };
+      return codeMap[company] || '';
+    }
+
+    // 导出采购单
+    async function exportPurchaseOrder(id) {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/purchase-orders/export/' + id, {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'purchase_order_' + id + '.xlsx';
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } else {
+          const data = await response.json();
+          alert('导出失败：' + data.error);
+        }
+      } catch (error) {
+        alert('导出失败：' + error.message);
+      }
+    }
+
+    // 创建采购单
+    async function createPurchaseOrder() {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        // 获取供应商列表
+        const suppliersResponse = await fetch('/api/suppliers', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        const suppliers = await suppliersResponse.json();
+
+        // 获取产品列表
+        const productsResponse = await fetch('/api/products', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        const products = await productsResponse.json();
+
+        let suppliersHTML = suppliers.map(s => '<option value="' + s.id + '">' + s.name + '</option>').join('');
+        let productsHTML = products.map(p => '<option value="' + p.id + '">' + p.chineseName + ' - ' + p.englishName + '</option>').join('');
+
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增采购单</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">关联PI编号</label><input type="text" id="create-pi-id" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="可选"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商</label><select id="create-supplier-select" class="w-full px-3 py-2 border border-gray-300 rounded-md">' + suppliersHTML + '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="create-purchase-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3"></textarea></div><div class="mb-6"><h4 class="font-medium text-gray-900 mb-3">商品列表</h4><div id="create-product-list"></div><button onclick="addProductRow()" class="mt-3 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">添加商品</button></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="savePurchaseOrder()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        addProductRow();
+      } catch (error) {
+        alert('创建采购单失败：' + error.message);
+      }
+    }
+
+    // 添加商品行
+    function addProductRow() {
+      const container = document.getElementById('create-product-list');
+      const index = container.children.length;
+
+      // 获取产品列表用于下拉选择
+      let productsHTML = '<select class="product-select w-full px-2 py-1 text-sm border border-gray-300 rounded">';
+      // 需要动态获取产品数据，但这里简化处理
+      productsHTML += '<option value="">请选择产品</option>';
+      productsHTML += '</select>';
+
+      let rowHTML = '<div class="border-b border-gray-200 py-4" data-index="' + index + '"><div class="grid grid-cols-5 gap-4"><div><label class="block text-xs text-gray-500">商品名称</label>' + productsHTML + '</div><div><label class="block text-xs text-gray-500">购买数量</label><input type="number" class="quantity-input w-full px-2 py-1 text-sm border border-gray-300 rounded" value="1"></div><div><label class="block text-xs text-gray-500">采购价格</label><input type="number" class="price-input w-full px-2 py-1 text-sm border border-gray-300 rounded" step="0.01"></div><div><label class="block text-xs text-gray-500">采购链接</label><input type="text" class="link-input w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">操作</label><button onclick="removeProductRow(' + index + ')" class="text-red-600 hover:text-red-900">删除</button></div></div></div>';
+
+      container.insertAdjacentHTML('beforeend', rowHTML);
+    }
+
+    // 移除商品行
+    function removeProductRow(index) {
+      const container = document.getElementById('create-product-list');
+      const row = container.querySelector('[data-index="' + index + '"]');
+      if (row) {
+        row.remove();
+      }
+    }
+
+    // 保存采购单
+    async function savePurchaseOrder() {
+      const user = checkLogin();
+      if (!user) return;
+
+      const piId = document.getElementById('create-pi-id').value;
+      const supplierId = document.getElementById('create-supplier-select').value;
+      const note = document.getElementById('create-purchase-note').value;
+
+      const productRows = document.querySelectorAll('#create-product-list > div');
+      const products = [];
+
+      productRows.forEach(row => {
+        const productId = row.querySelector('.product-select').value;
+        const quantity = parseInt(row.querySelector('.quantity-input').value) || 0;
+        const unitPrice = parseFloat(row.querySelector('.price-input').value) || 0;
+        const purchaseLink = row.querySelector('.link-input').value;
+
+        if (productId && quantity > 0) {
+          products.push({
+            productId,
+            quantity,
+            unitPrice,
+            purchaseLink
+          });
+        }
+      });
+
+      if (products.length === 0) {
+        alert('请至少添加一个商品');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/purchase-orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: JSON.stringify({ piId, supplierId, products, note })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('采购单创建成功');
+          closeModal();
+          loadPurchaseOrderList();
+        } else {
+          alert('创建失败：' + data.error);
+        }
+      } catch (error) {
+        alert('创建失败：' + error.message);
+      }
+    }
+
+    // 从PI生成采购单
+    async function generateFromPI() {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        // 获取PI列表
+        const piResponse = await fetch('/api/pi', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        const piList = await piResponse.json();
+
+        let piHTML = piList.map(pi => '<option value="' + pi.id + '">' + pi.id + ' - ' + pi.customerName + '</option>').join('');
+
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">从PI生成采购单</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">选择PI</label><select id="generate-pi-select" class="w-full px-3 py-2 border border-gray-300 rounded-md">' + piHTML + '</select></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="confirmGenerateFromPI()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">生成采购单</button></div></div></div></div>';
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+      } catch (error) {
+        alert('生成采购单失败：' + error.message);
+      }
+    }
+
+    // 确认从PI生成采购单
+    async function confirmGenerateFromPI() {
+      const user = checkLogin();
+      if (!user) return;
+
+      const piId = document.getElementById('generate-pi-select').value;
+
+      try {
+        const response = await fetch('/api/purchase-orders/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: JSON.stringify({ piId })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('采购单生成成功，共生成 ' + data.count + ' 条采购单');
+          closeModal();
+          loadPurchaseOrderList();
+        } else {
+          alert('生成失败：' + data.error);
+        }
+      } catch (error) {
+        alert('生成失败：' + error.message);
+      }
+    }
+
+    // 设置提醒
+    async function addReminder(purchaseOrderId, existingReminder = null) {
+      const user = checkLogin();
+      if (!user) return;
+
+      const defaultContent = '请跟进采购单（采购单号：' + purchaseOrderId + '）供应商发货进度';
+      const isEdit = existingReminder !== null;
+      
+      let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white max-w-lg mx-auto mt-20 rounded-lg shadow-xl"><div class="bg-gray-800 text-white px-6 py-4 rounded-t-lg"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">' + (isEdit ? '编辑提醒' : '设置提醒') + '</h3><button onclick="closeModal()" class="text-white hover:text-gray-300">&times;</button></div></div><div class="p-6"><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">提醒时间</label><input type="datetime-local" id="reminder-time" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (isEdit ? existingReminder.reminderTime.slice(0, 16) : '') + '"></div><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-1">提醒内容</label><textarea id="reminder-content" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3">' + (isEdit ? existingReminder.content : defaultContent) + '</textarea></div><div class="flex justify-end space-x-4 mt-6"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button>' + (isEdit ? '<button onclick="deleteReminder(\'' + existingReminder.id + '\', \'' + purchaseOrderId + '\')" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">删除</button>' : '') + '<button onclick="' + (isEdit ? 'updateReminder(\'' + existingReminder.id + '\', \'' + purchaseOrderId + '\')' : 'saveReminder(\'' + purchaseOrderId + '\')') + '" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">' + (isEdit ? '保存' : '添加') + '</button></div></div></div></div>';
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    async function editReminder(reminderId, purchaseOrderId) {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/reminders/' + purchaseOrderId, {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        const reminders = await response.json();
+        const reminder = reminders.find(r => r.id == reminderId);
+        if (reminder) {
+          addReminder(purchaseOrderId, reminder);
+        } else {
+          alert('找不到该提醒');
+        }
+      } catch (error) {
+        alert('获取提醒失败：' + error.message);
+      }
+    }
+
+    async function saveReminder(purchaseOrderId) {
+      const user = checkLogin();
+      if (!user) return;
+
+      const reminderTime = document.getElementById('reminder-time').value;
+      const content = document.getElementById('reminder-content').value.trim();
+
+      if (!reminderTime) {
+        alert('请选择提醒时间');
+        return;
+      }
+      if (!content) {
+        alert('请输入提醒内容');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/reminders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: JSON.stringify({ purchaseOrderId, reminderTime, content, email: 'gxhan0420@163.com' })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('提醒设置成功');
+          closeModal();
+          viewPurchaseOrderDetail(purchaseOrderId);
+        } else {
+          alert('设置失败：' + data.error);
+        }
+      } catch (error) {
+        alert('设置失败：' + error.message);
+      }
+    }
+
+    async function updateReminder(reminderId, purchaseOrderId) {
+      const user = checkLogin();
+      if (!user) return;
+
+      const reminderTime = document.getElementById('reminder-time').value;
+      const content = document.getElementById('reminder-content').value.trim();
+
+      if (!reminderTime) {
+        alert('请选择提醒时间');
+        return;
+      }
+      if (!content) {
+        alert('请输入提醒内容');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/reminders/' + reminderId, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: JSON.stringify({ reminderTime, content })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('提醒更新成功');
+          closeModal();
+          viewPurchaseOrderDetail(purchaseOrderId);
+        } else {
+          alert('更新失败：' + data.error);
+        }
+      } catch (error) {
+        alert('更新失败：' + error.message);
+      }
+    }
+
+    async function deleteReminder(reminderId, purchaseOrderId) {
+      if (!confirm('确定要删除这条提醒吗？')) return;
+
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/reminders/' + reminderId, {
+          method: 'DELETE',
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('删除成功');
+          closeModal();
+          viewPurchaseOrderDetail(purchaseOrderId);
+        } else {
+          alert('删除失败：' + data.error);
+        }
+      } catch (error) {
+        alert('删除失败：' + error.message);
+      }
+    }
+
+    // 查看产品历史价格
+    async function viewProductHistory(productId) {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/purchase-orders/history/' + productId, {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const history = await response.json();
+        if (!response.ok) {
+          alert('获取历史价格失败：' + history.error);
+          return;
+        }
+
+        let historyHTML = '';
+        if (history.length > 0) {
+          historyHTML = '<table class="min-w-full"><thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">采购单号</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">商品名</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">供应商</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">数量</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">单价</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">总价</th><th class="px-4 py-2 text-left text-xs font-medium text-gray-500">采购日期</th></tr></thead><tbody class="divide-y divide-gray-200">';
+          historyHTML += history.map(item => '<tr><td class="px-4 py-3 text-sm text-gray-900">' + item.purchaseOrderId + '</td><td class="px-4 py-3 text-sm text-gray-900">' + (item.productName || '') + '</td><td class="px-4 py-3 text-sm text-gray-900">' + (item.supplierName || '') + '</td><td class="px-4 py-3 text-sm text-gray-900">' + (item.quantity || 0) + '</td><td class="px-4 py-3 text-sm text-gray-900">¥' + (item.unitPrice || 0) + '</td><td class="px-4 py-3 text-sm text-gray-900">¥' + (item.totalPrice || 0) + '</td><td class="px-4 py-3 text-sm text-gray-900">' + new Date(item.purchaseDate).toLocaleDateString() + '</td></tr>').join('');
+          historyHTML += '</tbody></table>';
+        } else {
+          historyHTML = '<div class="text-center py-8 text-gray-500">暂无历史采购记录</div>';
+        }
+
+        let modalHTML = '<div id="history-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center"><div class="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-96 overflow-y-auto"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-lg font-bold">历史采购记录</h3><button onclick="closeHistoryModal()" class="px-3 py-1 bg-gray-600 hover:bg-gray-500 rounded text-sm">关闭</button></div></div><div class="p-4">' + historyHTML + '</div></div></div>';
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+      } catch (error) {
+        alert('获取历史价格失败：' + error.message);
+      }
+    }
+
+    // 关闭历史价格弹窗
+    function closeHistoryModal() {
+      const modal = document.getElementById('history-modal');
+      if (modal) {
+        modal.remove();
+      }
+    }
+
+    // 保存商品信息
+    async function saveProductInfo(purchaseOrderId) {
+      const user = checkLogin();
+      if (!user) return;
+
+      const productRows = document.querySelectorAll('#product-list-container > div');
+      const products = [];
+
+      productRows.forEach(row => {
+        const index = row.getAttribute('data-index');
+        const productId = row.querySelector('input[disabled]').value;
+        const unitPrice = parseFloat(row.querySelector('input[type="number"]').value) || 0;
+        const shippingFee = parseFloat(row.querySelectorAll('input[type="number"]')[1].value) || 0;
+
+        products.push({
+          index: parseInt(index),
+          productId,
+          unitPrice,
+          shippingFee
+        });
+      });
+
+      try {
+        const response = await fetch('/api/purchase-orders/' + purchaseOrderId + '/products', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: JSON.stringify({ products })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('商品信息保存成功');
+          closeModal();
+          viewPurchaseOrderDetail(purchaseOrderId);
+        } else {
+          alert('保存失败：' + data.error);
+        }
+      } catch (error) {
+        alert('保存失败：' + error.message);
+      }
+    }
+
+    // 其他模块的加载函数（简化处理）
+    async function loadPIList() {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/pi', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          renderPIList(data);
+        } else {
+          alert('获取销售报价单列表失败：' + data.error);
+        }
+      } catch (error) {
+        alert('加载销售报价单失败：' + error.message);
+      }
+    }
+
+    // 渲染销售报价单列表
+    function renderPIList(piList) {
+      const tableContainer = document.getElementById('table-container');
+      let searchHTML = '<div class="mb-4 flex items-center"><input type="text" id="pi-search" placeholder="搜索..." class="px-3 py-2 border border-gray-300 rounded-md mr-2 w-64"><button onclick="searchPI()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">搜索</button><button onclick="clearPISearch()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded ml-2">清空</button></div>';
+      
+      let html = searchHTML + '<table class="min-w-full border border-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">PI编号</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">客户</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">总金额</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">状态</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">创建日期</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">操作</th></tr></thead><tbody class="divide-y divide-gray-200">';
+      
+      for (const item of piList) {
+        html += '<tr><td class="px-6 py-3 text-sm text-gray-900">' + item.id + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.customerName + '</td><td class="px-6 py-3 text-sm text-gray-900">¥' + item.totalAmount + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.status + '</td><td class="px-6 py-3 text-sm text-gray-900">' + new Date(item.created_at).toLocaleDateString() + '</td><td class="px-6 py-3 text-sm"><button onclick="editPI(\'' + item.id + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">编辑</button><button onclick="deletePI(\'' + item.id + '\')" class="text-red-600 hover:text-red-900 mr-2 text-xs">删除</button><button onclick="exportPI(\'' + item.id + '\')" class="text-green-600 hover:text-green-900 text-xs">导出</button></td></tr>';
+      }
+      
+      html += '</tbody></table><div class="mt-4 flex justify-between items-center"><div class="text-sm text-gray-500">共 ' + piList.length + ' 条记录</div></div>';
+      
+      tableContainer.innerHTML = html;
+      document.getElementById('table-title').textContent = '销售报价单管理';
+      document.getElementById('action-buttons').innerHTML = '<button onclick="createPI()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">新增PI</button>';
+      currentTable = 'pi';
+    }
+
+    async function exportPI(id) {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/pi/export/' + id, {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'PI_' + id + '.xlsx';
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }
+      } catch (error) {
+        alert('导出失败：' + error.message);
+      }
+    }
+
+    async function createPI() {
+      const user = checkLogin();
+      if (!user) return;
+
+      try {
+        const response = await fetch('/api/customers', {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        const customers = await response.json();
+
+        let customersHTML = customers.map(c => '<option value="' + c.id + '">' + c.companyName + '</option>').join('');
+
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增销售报价单</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">客户</label><select id="create-pi-customer" class="w-full px-3 py-2 border border-gray-300 rounded-md">' + customersHTML + '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="create-pi-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3"></textarea></div><div class="mb-6"><h4 class="font-medium text-gray-900 mb-3">产品列表</h4><div id="create-pi-product-list"></div><button onclick="addPIProductRow()" class="mt-3 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">添加产品</button></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="savePI()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        addPIProductRow();
+      } catch (error) {
+        alert('创建失败：' + error.message);
+      }
+    }
+
+    function addPIProductRow() {
+      const container = document.getElementById('create-pi-product-list');
+      const index = container.children.length;
+
+      let rowHTML = '<div class="border-b border-gray-200 py-4" data-index="' + index + '"><div class="grid grid-cols-4 gap-4"><div><label class="block text-xs text-gray-500">产品名称</label><input type="text" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">产品ID</label><input type="text" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">数量</label><input type="number" value="1" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">操作</label><button onclick="removePIProductRow(' + index + ')" class="text-red-600 hover:text-red-900">删除</button></div></div></div>';
+
+      container.insertAdjacentHTML('beforeend', rowHTML);
+    }
+
+    function removePIProductRow(index) {
+      const container = document.getElementById('create-pi-product-list');
+      const row = container.querySelector('[data-index="' + index + '"]');
+      if (row) {
+        row.remove();
+      }
+    }
+
+    async function savePI() {
+      const user = checkLogin();
+      if (!user) return;
+
+      const customerId = document.getElementById('create-pi-customer').value;
+      const note = document.getElementById('create-pi-note').value;
+
+      const productRows = document.querySelectorAll('#create-pi-product-list > div');
+      const products = [];
+
+      productRows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const product = {
+          id: inputs[1].value,
+          name: inputs[0].value,
+          quantity: parseInt(inputs[2].value) || 1
+        };
+        products.push(product);
+      });
+
+      try {
+        const response = await fetch('/api/pi', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: JSON.stringify({
+            customerId,
+            note,
+            products
+          })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('创建成功');
+          closeModal();
+          loadPIList();
+        } else {
+          alert('创建失败：' + data.error);
+        }
+      } catch (error) {
+        alert('创建失败：' + error.message);
+      }
+    }
+
+    // 供应商操作函数
+    function createSupplier() {
+      let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增供应商</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商ID</label><input type="text" id="create-supplier-id" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商名称</label><input type="text" id="create-supplier-name" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司类型</label><input type="text" id="create-supplier-type" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">主营产品</label><input type="text" id="create-supplier-products" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="create-supplier-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系方式</label><input type="text" id="create-supplier-contactinfo" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveSupplier()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    async function saveSupplier() {
+      const user = checkLogin();
+      if (!user) return;
+      const id = document.getElementById('create-supplier-id').value;
+      const name = document.getElementById('create-supplier-name').value;
+      const companyType = document.getElementById('create-supplier-type').value;
+      const mainProducts = document.getElementById('create-supplier-products').value;
+      const contact = document.getElementById('create-supplier-contact').value;
+      const contactInfo = document.getElementById('create-supplier-contactinfo').value;
+      try {
+        const response = await fetch('/api/suppliers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
+          body: JSON.stringify({ id, name, companyType, mainProducts, contact, contactInfo })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert('创建成功');
+          closeModal();
+          loadSupplierList();
+        } else {
+          alert('创建失败：' + data.error);
+        }
+      } catch (error) {
+        alert('创建失败：' + error.message);
+      }
+    }
+
+    async function editSupplier(id) {
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/suppliers/' + id, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } });
+        const supplier = await response.json();
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑供应商</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商ID</label><input type="text" id="edit-supplier-id" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.id + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商名称</label><input type="text" id="edit-supplier-name" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.name + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司类型</label><input type="text" id="edit-supplier-type" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.companyType + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">主营产品</label><input type="text" id="edit-supplier-products" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.mainProducts + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="edit-supplier-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.contact + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系方式</label><input type="text" id="edit-supplier-contactinfo" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.contactInfo + '"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="updateSupplier()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+      } catch (error) {
+        alert('获取供应商信息失败：' + error.message);
+      }
+    }
+
+    async function updateSupplier() {
+      const user = checkLogin();
+      if (!user) return;
+      const id = document.getElementById('edit-supplier-id').value;
+      const name = document.getElementById('edit-supplier-name').value;
+      const companyType = document.getElementById('edit-supplier-type').value;
+      const mainProducts = document.getElementById('edit-supplier-products').value;
+      const contact = document.getElementById('edit-supplier-contact').value;
+      const contactInfo = document.getElementById('edit-supplier-contactinfo').value;
+      try {
+        const response = await fetch('/api/suppliers/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
+          body: JSON.stringify({ name, companyType, mainProducts, contact, contactInfo })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert('更新成功');
+          closeModal();
+          loadSupplierList();
+        } else {
+          alert('更新失败：' + data.error);
+        }
+      } catch (error) {
+        alert('更新失败：' + error.message);
+      }
+    }
+
+    async function updateSupplierInvoiceStatus(supplierId) {
+      const user = checkLogin();
+      if (!user) return;
+
+      let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white max-w-lg mx-auto mt-20 rounded-lg shadow-xl"><div class="bg-gray-800 text-white px-6 py-4 rounded-t-lg"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">更新开票状态</h3><button onclick="closeModal()" class="text-white hover:text-gray-300">&times;</button></div></div><div class="p-6"><div class="mb-4"><label class="block text-sm font-medium text-gray-700 mb-2">开票状态</label><select id="invoice-status-select" class="w-full px-3 py-2 border border-gray-300 rounded-md"><option value="未开票">未开票</option><option value="已开票">已开票</option><option value="开票中">开票中</option></select></div><div class="flex justify-end space-x-4 mt-6"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveSupplierInvoiceStatus(\'' + supplierId + '\')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    async function saveSupplierInvoiceStatus(supplierId) {
+      const user = checkLogin();
+      if (!user) return;
+
+      const invoiceStatus = document.getElementById('invoice-status-select').value;
+
+      try {
+        const response = await fetch('/api/suppliers/' + supplierId + '/invoice-status', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: JSON.stringify({ invoiceStatus })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          alert('开票状态更新成功');
+          closeModal();
+        } else {
+          alert('更新失败：' + data.error);
+        }
+      } catch (error) {
+        alert('更新失败：' + error.message);
+      }
+    }
+
+    async function deleteSupplier(id) {
+      if (!confirm('确定要删除这个供应商吗？')) return;
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/suppliers/' + id, {
+          method: 'DELETE',
+          headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
+        });
+        if (response.ok) {
+          alert('删除成功');
+          loadSupplierList();
+        } else {
+          const data = await response.json();
+          alert('删除失败：' + data.error);
+        }
+      } catch (error) {
+        alert('删除失败：' + error.message);
+      }
+    }
+
+    // 供应商附件管理
+    async function showSupplierAttachments(supplierId) {
+      const user = checkLogin();
+      if (!user) return;
+      
+      try {
+        const response = await fetch('/api/suppliers/' + supplierId, {
+          headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
+        });
+        const supplier = await response.json();
+        
+        let attachments = [];
+        if (supplier.attachments) {
+          try {
+            attachments = JSON.parse(supplier.attachments);
+          } catch (e) {
+            attachments = [];
+          }
+        }
+        
+        let attachmentsHTML = '';
+        if (attachments.length > 0) {
+          attachmentsHTML = attachments.map(att => {
+            const fileSizeKB = (att.fileSize / 1024).toFixed(2);
+            const fileSizeDisplay = att.fileSize > 1024 * 1024 ? (att.fileSize / (1024 * 1024)).toFixed(2) + ' MB' : fileSizeKB + ' KB';
+            return '<div class="flex items-center justify-between bg-gray-50 p-3 rounded mb-2"><div class="flex-1"><div class="text-sm font-medium text-gray-900">' + att.originalName + '</div><div class="text-xs text-gray-500">大小: ' + fileSizeDisplay + ' | 上传时间: ' + new Date(att.uploadedAt).toLocaleString() + '</div></div><button onclick="deleteSupplierAttachment(\'' + supplierId + '\', \'' + att.id + '\')" class="ml-4 px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">删除</button></div>';
+          }).join('');
+        } else {
+          attachmentsHTML = '<div class="text-center text-gray-500 py-4">暂无附件</div>';
+        }
+        
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white max-w-2xl mx-auto mt-20 rounded-lg shadow-xl"><div class="bg-gray-800 text-white px-6 py-4 rounded-t-lg"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">供应商附件 - ' + supplier.name + '</h3><button onclick="closeModal()" class="text-white hover:text-gray-300">&times;</button></div></div><div class="p-6"><div class="mb-4"><p class="text-sm text-gray-600">支持上传 PDF、图片、Excel、Word 格式文件，最多上传5个文件，每个文件不超过5MB</p></div><div class="mb-4"><input type="file" id="supplier-attachment-files" multiple accept=".pdf,.jpg,.jpeg,.png,.gif,.xlsx,.xls,.docx,.doc" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-4"><button onclick="uploadSupplierAttachments(\'' + supplierId + '\')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">上传附件</button></div><div class="border-t pt-4 mt-4"><h4 class="font-medium text-gray-900 mb-2">已上传的附件 (' + attachments.length + '/5)</h4><div id="attachments-list">' + attachmentsHTML + '</div></div><div class="flex justify-end mt-6"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">关闭</button></div></div></div></div>';
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+      } catch (error) {
+        alert('获取供应商附件失败：' + error.message);
+      }
+    }
+
+    async function uploadSupplierAttachments(supplierId) {
+      const user = checkLogin();
+      if (!user) return;
+      
+      const fileInput = document.getElementById('supplier-attachment-files');
+      const files = fileInput.files;
+      
+      if (!files || files.length === 0) {
+        alert('请选择文件');
+        return;
+      }
+      
+      if (files.length > 5) {
+        alert('最多只能上传5个文件');
+        return;
+      }
+      
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('files', files[i]);
+      }
+      
+      try {
+        const response = await fetch('/api/suppliers/' + supplierId + '/attachments', {
+          method: 'POST',
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          alert('附件上传成功');
+          showSupplierAttachments(supplierId);
+        } else {
+          alert('上传失败：' + data.error);
+        }
+      } catch (error) {
+        alert('上传失败：' + error.message);
+      }
+    }
+
+    async function deleteSupplierAttachment(supplierId, attachmentId) {
+      if (!confirm('确定要删除这个附件吗？')) return;
+      
+      const user = checkLogin();
+      if (!user) return;
+      
+      try {
+        const response = await fetch('/api/suppliers/' + supplierId + '/attachments/' + attachmentId, {
+          method: 'DELETE',
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          alert('附件删除成功');
+          showSupplierAttachments(supplierId);
+        } else {
+          alert('删除失败：' + data.error);
+        }
+      } catch (error) {
+        alert('删除失败：' + error.message);
+      }
+    }
+
+    // 产品操作函数
+    function createProduct() {
+      let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增产品</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品ID</label><input type="text" id="create-product-id" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">英文名称</label><input type="text" id="create-product-englishname" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">中文名称</label><input type="text" id="create-product-chinesename" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">销售价(≤100)</label><input type="number" id="create-product-salespriceless100" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">销售价(>100)</label><input type="number" id="create-product-salespricemore100" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商ID</label><input type="text" id="create-product-supplierid" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">采购价</label><input type="number" id="create-product-purchaseprice" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveProduct()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    async function saveProduct() {
+      const user = checkLogin();
+      if (!user) return;
+      const id = document.getElementById('create-product-id').value;
+      const englishName = document.getElementById('create-product-englishname').value;
+      const chineseName = document.getElementById('create-product-chinesename').value;
+      const salesPriceLess100 = parseFloat(document.getElementById('create-product-salespriceless100').value) || 0;
+      const salesPriceMore100 = parseFloat(document.getElementById('create-product-salespricemore100').value) || 0;
+      const supplierId = document.getElementById('create-product-supplierid').value;
+      const purchasePrice = parseFloat(document.getElementById('create-product-purchaseprice').value) || 0;
+      try {
+        const response = await fetch('/api/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
+          body: JSON.stringify({ id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, purchasePrice })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert('创建成功');
+          closeModal();
+          loadProductList();
+        } else {
+          alert('创建失败：' + data.error);
+        }
+      } catch (error) {
+        alert('创建失败：' + error.message);
+      }
+    }
+
+    async function editProduct(id) {
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/products/' + id, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } });
+        const product = await response.json();
+        const purchasePrice = product.purchasePrice || product.purchasePriceLess100 || 0;
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑产品</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品ID</label><input type="text" id="edit-product-id" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.id + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">英文名称</label><input type="text" id="edit-product-englishname" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.englishName + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">中文名称</label><input type="text" id="edit-product-chinesename" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.chineseName + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">销售价(≤100)</label><input type="number" id="edit-product-salespriceless100" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.salesPriceLess100 + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">销售价(>100)</label><input type="number" id="edit-product-salespricemore100" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.salesPriceMore100 + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商ID</label><input type="text" id="edit-product-supplierid" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.supplierId + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">采购价</label><input type="number" id="edit-product-purchaseprice" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + purchasePrice + '"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="updateProduct()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+      } catch (error) {
+        alert('获取产品信息失败：' + error.message);
+      }
+    }
+
+    async function updateProduct() {
+      const user = checkLogin();
+      if (!user) return;
+      const id = document.getElementById('edit-product-id').value;
+      const englishName = document.getElementById('edit-product-englishname').value;
+      const chineseName = document.getElementById('edit-product-chinesename').value;
+      const salesPriceLess100 = parseFloat(document.getElementById('edit-product-salespriceless100').value) || 0;
+      const salesPriceMore100 = parseFloat(document.getElementById('edit-product-salespricemore100').value) || 0;
+      const supplierId = document.getElementById('edit-product-supplierid').value;
+      const purchasePrice = parseFloat(document.getElementById('edit-product-purchaseprice').value) || 0;
+      try {
+        const response = await fetch('/api/products/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
+          body: JSON.stringify({ englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, purchasePrice })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert('更新成功');
+          closeModal();
+          loadProductList();
+        } else {
+          alert('更新失败：' + data.error);
+        }
+      } catch (error) {
+        alert('更新失败：' + error.message);
+      }
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm('确定要删除这个产品吗？')) return;
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/products/' + id, {
+          method: 'DELETE',
+          headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
+        });
+        if (response.ok) {
+          alert('删除成功');
+          loadProductList();
+        } else {
+          const data = await response.json();
+          alert('删除失败：' + data.error);
+        }
+      } catch (error) {
+        alert('删除失败：' + error.message);
+      }
+    }
+
+    // 客户操作函数
+    function createCustomer() {
+      let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增客户</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">客户ID</label><input type="text" id="create-customer-id" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司名称</label><input type="text" id="create-customer-companyname" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司简称</label><input type="text" id="create-customer-companyshortname" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="create-customer-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">国家</label><input type="text" id="create-customer-country" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司规模</label><input type="text" id="create-customer-companysize" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveCustomer()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    async function saveCustomer() {
+      const user = checkLogin();
+      if (!user) return;
+      const id = document.getElementById('create-customer-id').value;
+      const companyName = document.getElementById('create-customer-companyname').value;
+      const companyShortName = document.getElementById('create-customer-companyshortname').value;
+      const contact = document.getElementById('create-customer-contact').value;
+      const country = document.getElementById('create-customer-country').value;
+      const companySize = document.getElementById('create-customer-companysize').value;
+      try {
+        const response = await fetch('/api/customers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
+          body: JSON.stringify({ id, companyName, companyShortName, contact, country, companySize })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert('创建成功');
+          closeModal();
+          loadCustomerList();
+        } else {
+          alert('创建失败：' + data.error);
+        }
+      } catch (error) {
+        alert('创建失败：' + error.message);
+      }
+    }
+
+    async function editCustomer(id) {
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/customers/' + id, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } });
+        const customer = await response.json();
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑客户</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">客户ID</label><input type="text" id="edit-customer-id" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.id + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司名称</label><input type="text" id="edit-customer-companyname" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.companyName + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司简称</label><input type="text" id="edit-customer-companyshortname" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.companyShortName + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="edit-customer-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.contact + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">国家</label><input type="text" id="edit-customer-country" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.country + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司规模</label><input type="text" id="edit-customer-companysize" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.companySize + '"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="updateCustomer()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+      } catch (error) {
+        alert('获取客户信息失败：' + error.message);
+      }
+    }
+
+    async function updateCustomer() {
+      const user = checkLogin();
+      if (!user) return;
+      const id = document.getElementById('edit-customer-id').value;
+      const companyName = document.getElementById('edit-customer-companyname').value;
+      const companyShortName = document.getElementById('edit-customer-companyshortname').value;
+      const contact = document.getElementById('edit-customer-contact').value;
+      const country = document.getElementById('edit-customer-country').value;
+      const companySize = document.getElementById('edit-customer-companysize').value;
+      try {
+        const response = await fetch('/api/customers/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
+          body: JSON.stringify({ companyName, companyShortName, contact, country, companySize })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert('更新成功');
+          closeModal();
+          loadCustomerList();
+        } else {
+          alert('更新失败：' + data.error);
+        }
+      } catch (error) {
+        alert('更新失败：' + error.message);
+      }
+    }
+
+    async function deleteCustomer(id) {
+      if (!confirm('确定要删除这个客户吗？')) return;
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/customers/' + id, {
+          method: 'DELETE',
+          headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
+        });
+        if (response.ok) {
+          alert('删除成功');
+          loadCustomerList();
+        } else {
+          const data = await response.json();
+          alert('删除失败：' + data.error);
+        }
+      } catch (error) {
+        alert('删除失败：' + error.message);
+      }
+    }
+
+    // 库存操作函数
+    function createInventory() {
+      let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增库存</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品ID</label><input type="text" id="create-inventory-productid" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">库存数量</label><input type="number" id="create-inventory-quantity" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="0"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">仓库</label><input type="text" id="create-inventory-warehouse" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveInventory()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    async function saveInventory() {
+      const user = checkLogin();
+      if (!user) return;
+      const productId = document.getElementById('create-inventory-productid').value;
+      const quantity = parseInt(document.getElementById('create-inventory-quantity').value) || 0;
+      const warehouse = document.getElementById('create-inventory-warehouse').value;
+      try {
+        const response = await fetch('/api/inventory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
+          body: JSON.stringify({ productId, quantity, warehouse })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert('创建成功');
+          closeModal();
+          loadInventoryList();
+        } else {
+          alert('创建失败：' + data.error);
+        }
+      } catch (error) {
+        alert('创建失败：' + error.message);
+      }
+    }
+
+    async function editInventory(productId) {
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/inventory/' + productId, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } });
+        const inventory = await response.json();
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑库存</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品ID</label><input type="text" id="edit-inventory-productid" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + inventory.productId + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">库存数量</label><input type="number" id="edit-inventory-quantity" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + inventory.quantity + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">仓库</label><input type="text" id="edit-inventory-warehouse" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + inventory.warehouse + '"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="updateInventory()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+      } catch (error) {
+        alert('获取库存信息失败：' + error.message);
+      }
+    }
+
+    async function updateInventory() {
+      const user = checkLogin();
+      if (!user) return;
+      const productId = document.getElementById('edit-inventory-productid').value;
+      const quantity = parseInt(document.getElementById('edit-inventory-quantity').value) || 0;
+      const warehouse = document.getElementById('edit-inventory-warehouse').value;
+      try {
+        const response = await fetch('/api/inventory/' + productId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
+          body: JSON.stringify({ quantity, warehouse })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          alert('更新成功');
+          closeModal();
+          loadInventoryList();
+        } else {
+          alert('更新失败：' + data.error);
+        }
+      } catch (error) {
+        alert('更新失败：' + error.message);
+      }
+    }
+
+    async function deleteInventory(productId) {
+      if (!confirm('确定要删除这条库存记录吗？')) return;
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/inventory/' + productId, {
+          method: 'DELETE',
+          headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
+        });
+        if (response.ok) {
+          alert('删除成功');
+          loadInventoryList();
+        } else {
+          const data = await response.json();
+          alert('删除失败：' + data.error);
+        }
+      } catch (error) {
+        alert('删除失败：' + error.message);
+      }
+    }
+
+    // 导入功能
+    function importProducts() {
+      showImportModal('products');
+    }
+
+    function importInventory() {
+      showImportModal('inventory');
+    }
+
+    function showImportModal(type) {
+      const typeNames = {
+        'suppliers': '供应商',
+        'products': '产品',
+        'customers': '客户',
+        'inventory': '库存'
+      };
+      const typeName = typeNames[type] || type;
+      
+      let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white max-w-lg mx-auto mt-20 rounded-lg shadow-xl"><div class="bg-gray-800 text-white px-6 py-4 rounded-t-lg"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">导入' + typeName + '</h3><button onclick="closeModal()" class="text-white hover:text-gray-300">&times;</button></div></div><div class="p-6"><div class="mb-6"><p class="text-gray-600 mb-4">请先下载模板，填写完成后上传导入文件。</p><button onclick="downloadTemplate(\'' + type + '\')" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 mr-4">下载模板</button></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-2">选择文件</label><input type="file" id="import-file" accept=".xlsx,.xls" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="uploadFile(\'' + type + '\')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">导入</button></div></div></div></div>';
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    async function downloadTemplate(type) {
+      const user = checkLogin();
+      if (!user) return;
+      
+      try {
+        const response = await fetch('/api/templates/' + type, {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const typeNames = {
+            'suppliers': 'supplier_import_template.xlsx',
+            'products': 'product_import_template.xlsx',
+            'customers': 'customer_import_template.xlsx',
+            'inventory': 'inventory_import_template.xlsx'
+          };
+          a.download = typeNames[type] || 'import_template.xlsx';
+          a.click();
+          window.URL.revokeObjectURL(url);
+        } else {
+          const data = await response.json();
+          alert('下载模板失败：' + data.error);
+        }
+      } catch (error) {
+        alert('下载模板失败：' + error.message);
+      }
+    }
+
+    async function uploadFile(type) {
+      const user = checkLogin();
+      if (!user) return;
+      
+      const fileInput = document.getElementById('import-file');
+      const file = fileInput.files[0];
+      
+      if (!file) {
+        alert('请选择文件');
+        return;
+      }
+      
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch('/api/import/' + type, {
+          method: 'POST',
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          },
+          body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          let message = '导入完成！\n成功：' + data.successCount + '条';
+          if (data.failCount > 0) {
+            message += '\n失败：' + data.failCount + '条';
+            if (data.errors && data.errors.length > 0) {
+              message += '\n\n错误信息：\n' + data.errors.join('\n');
+            }
+          }
+          alert(message);
+          closeModal();
+          
+          // 重新加载列表
+          if (type === 'suppliers') {
+            loadSupplierList();
+          } else if (type === 'products') {
+            loadProductList();
+          } else if (type === 'customers') {
+            loadCustomerList();
+          } else if (type === 'inventory') {
+            loadInventoryList();
+          }
+        } else {
+          alert('导入失败：' + data.error);
+        }
+      } catch (error) {
+        alert('导入失败：' + error.message);
+      }
+    }
+
+    // 搜索和清空函数
+    function searchSuppliers() {
+      const search = document.getElementById('supplier-search').value;
+      loadSupplierListWithSearch(search);
+    }
+
+    function clearSupplierSearch() {
+      document.getElementById('supplier-search').value = '';
+      loadSupplierList();
+    }
+
+    async function loadSupplierListWithSearch(search) {
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/suppliers?search=' + encodeURIComponent(search), {
+          headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
+        });
+        const data = await response.json();
+        if (response.ok) {
+          renderSupplierList(data);
+        } else {
+          alert('获取供应商列表失败：' + data.error);
+        }
+      } catch (error) {
+        alert('加载供应商失败：' + error.message);
+      }
+    }
+
+    function searchProducts() {
+      const search = document.getElementById('product-search').value;
+      loadProductListWithSearch(search);
+    }
+
+    function clearProductSearch() {
+      document.getElementById('product-search').value = '';
+      loadProductList();
+    }
+
+    async function loadProductListWithSearch(search) {
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/products?search=' + encodeURIComponent(search), {
+          headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
+        });
+        const data = await response.json();
+        if (response.ok) {
+          renderProductList(data);
+        } else {
+          alert('获取产品列表失败：' + data.error);
+        }
+      } catch (error) {
+        alert('加载产品失败：' + error.message);
+      }
+    }
+
+    function searchCustomers() {
+      const search = document.getElementById('customer-search').value;
+      loadCustomerListWithSearch(search);
+    }
+
+    function clearCustomerSearch() {
+      document.getElementById('customer-search').value = '';
+      loadCustomerList();
+    }
+
+    async function loadCustomerListWithSearch(search) {
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/customers?search=' + encodeURIComponent(search), {
+          headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
+        });
+        const data = await response.json();
+        if (response.ok) {
+          renderCustomerList(data);
+        } else {
+          alert('获取客户列表失败：' + data.error);
+        }
+      } catch (error) {
+        alert('加载客户失败：' + error.message);
+      }
+    }
+
+    function searchInventory() {
+      const search = document.getElementById('inventory-search').value;
+      loadInventoryListWithSearch(search);
+    }
+
+    function clearInventorySearch() {
+      document.getElementById('inventory-search').value = '';
+      loadInventoryList();
+    }
+
+    async function loadInventoryListWithSearch(search) {
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/inventory?search=' + encodeURIComponent(search), {
+          headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
+        });
+        const data = await response.json();
+        if (response.ok) {
+          renderInventoryList(data);
+        } else {
+          alert('获取库存列表失败：' + data.error);
+        }
+      } catch (error) {
+        alert('加载库存失败：' + error.message);
+      }
+    }
+
+    // PI搜索和清空函数
+    function searchPI() {
+      const search = document.getElementById('pi-search').value;
+      loadPIListWithSearch(search);
+    }
+
+    function clearPISearch() {
+      document.getElementById('pi-search').value = '';
+      loadPIList();
+    }
+
+    async function loadPIListWithSearch(search) {
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/pi?search=' + encodeURIComponent(search), {
+          headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
+        });
+        const data = await response.json();
+        if (response.ok) {
+          renderPIList(data);
+        } else {
+          alert('获取PI列表失败：' + data.error);
+        }
+      } catch (error) {
+        alert('加载PI失败：' + error.message);
+      }
+    }
+
+    // PI编辑和删除函数
+    async function editPI(id) {
+      alert('编辑PI功能开发中');
+    }
+
+    async function deletePI(id) {
+      if (!confirm('确定要删除这个PI吗？')) return;
+      const user = checkLogin();
+      if (!user) return;
+      try {
+        const response = await fetch('/api/pi/' + id, {
+          method: 'DELETE',
+          headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
+        });
+        if (response.ok) {
+          alert('删除成功');
+          loadPIList();
+        } else {
+          const data = await response.json();
+          alert('删除失败：' + data.error);
+        }
+      } catch (error) {
+        alert('删除失败：' + error.message);
+      }
+    }
+
+    // 页面初始化
+    document.addEventListener('DOMContentLoaded', function() {
+      updateUserInfo();
+      loadPurchaseOrderList();
+    });
+  </script>
+</body>
+</html>
