@@ -10,11 +10,40 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const dbPath = path.join(process.cwd(), 'backend/database.db');
-const db = new sqlite3.Database(dbPath);
+let db = null;
+
+function initDb() {
+  return new Promise((resolve, reject) => {
+    const dbDir = path.join(process.cwd(), 'backend');
+    const dbPath = path.join(dbDir, 'database.db');
+    
+    if (!fs.existsSync(dbDir)) {
+      try {
+        fs.mkdirSync(dbDir, { recursive: true });
+      } catch (e) {
+        console.error('Cannot create backend directory:', e);
+      }
+    }
+    
+    db = new sqlite3.Database(dbPath, (err) => {
+      if (err) {
+        console.error('Database connection error:', err);
+        reject(err);
+        return;
+      }
+      console.log('Database connected at:', dbPath);
+      resolve();
+    });
+  });
+}
 
 function initDatabase() {
   return new Promise((resolve, reject) => {
+    if (!db) {
+      reject(new Error('Database not initialized'));
+      return;
+    }
+    
     db.serialize(() => {
       db.run(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,7 +147,11 @@ function initDatabase() {
                           fileName TEXT,
                           filePath TEXT,
                           uploadedAt TEXT
-                        )`, resolve);
+                        )`, () => {
+                          db.run(`INSERT OR IGNORE INTO users (username, password, role) VALUES ('sales', 'sales123', '业务员')`, () => {
+                            db.run(`INSERT OR IGNORE INTO users (username, password, role) VALUES ('purchase', 'purchase123', '采购员')`, resolve);
+                          });
+                        });
                       });
                     });
                   });
@@ -132,8 +165,23 @@ function initDatabase() {
   });
 }
 
+app.use(async (req, res, next) => {
+  if (!db) {
+    try {
+      await initDb();
+      await initDatabase();
+    } catch (err) {
+      console.error('Database initialization failed:', err);
+    }
+  }
+  next();
+});
+
 function checkPermission(allowedRoles) {
   return (req, res, next) => {
+    if (!db) {
+      return res.status(500).json({ error: 'Database not available' });
+    }
     const username = req.headers.username;
     const password = req.headers.password;
     
@@ -151,6 +199,7 @@ function checkPermission(allowedRoles) {
 }
 
 app.post('/api/login', (req, res) => {
+  if (!db) return res.status(500).json({ error: 'Database not available' });
   const { username, password } = req.body;
   db.get('SELECT * FROM users WHERE username = ? AND password = ?', [username, password], (err, user) => {
     if (err || !user) {
