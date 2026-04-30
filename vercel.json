@@ -15,12 +15,5 @@
       "src": "/(.*)",
       "dest": "dist/$1"
     }
-  ],
-  "installCommand": "npm install",
-  "functions": {
-    "api/index.js": {
-      "includeFiles": "backend/database.db",
-      "includeFiles": "backend/templates/**"
-    }
-  }
+  ]
 }
