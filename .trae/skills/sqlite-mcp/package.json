@@ -1,0 +1,20 @@
+{
+  "name": "sqlite-mcp-server",
+  "version": "1.0.0",
+  "description": "SQLite MCP Server for database operations",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.6"
+  },
+  "keywords": [
+    "mcp",
+    "sqlite",
+    "database"
+  ],
+  "author": "",
+  "license": "MIT"
+}

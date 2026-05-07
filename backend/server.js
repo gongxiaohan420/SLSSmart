@@ -9,19 +9,22 @@ const upload = multer({ dest: 'uploads/' });
 
 // 创建邮件传输器
 const transporter = nodemailer.createTransport({
-  service: '163', // 使用163邮箱服务
+  host: 'smtp.163.com',
+  port: 465,
+  secure: true,
   auth: {
-    user: 'gxhan0420@163.com', // 实际的163邮箱
-    pass: 'RGhwVqeQbTxVXTeE' // 163邮箱授权码
+    user: 'gxhan0420@163.com',
+    pass: 'RGhwVqeQbTxVXTeE'
   }
 });
 
-// 创建数据库连接
-const db = new sqlite3.Database('./database.db', (err) => {
+// 创建数据库连接 - 使用相对于脚本位置的路径，确保始终使用backend目录下的数据库
+const dbPath = path.join(__dirname, 'database.db');
+const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error opening database:', err.message);
   } else {
-    console.log('Connected to the SQLite database.');
+    console.log('Connected to the SQLite database at:', dbPath);
   }
 });
 
@@ -65,6 +68,7 @@ function initDatabase(callback) {
           purchasePriceLess100 REAL,
           purchasePriceMore100 REAL,
           purchaseLink TEXT,
+          purchaseChannel TEXT,
           features TEXT,
           created_at TEXT
         )
@@ -77,6 +81,7 @@ function initDatabase(callback) {
             companyShortName TEXT,
             contact TEXT,
             country TEXT,
+            countryCode TEXT,
             website TEXT,
             companySize TEXT,
             created_at TEXT
@@ -198,6 +203,7 @@ const PORT = 4000;
 
 
 // 中间件
+app.use(express.static(path.join(__dirname, '..')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -249,9 +255,328 @@ let inventory = [];
 let piList = [];
 let purchaseOrders = [];
 
+// ISO 3166-1 Alpha-2 国家代码与中文名称映射
+const countryCodes = {
+  'AF': '阿富汗',
+  'AX': '奥兰群岛',
+  'AL': '阿尔巴尼亚',
+  'DZ': '阿尔及利亚',
+  'AS': '美属萨摩亚',
+  'AD': '安道尔',
+  'AO': '安哥拉',
+  'AI': '安圭拉',
+  'AQ': '南极洲',
+  'AG': '安提瓜和巴布达',
+  'AR': '阿根廷',
+  'AM': '亚美尼亚',
+  'AW': '阿鲁巴',
+  'AU': '澳大利亚',
+  'AT': '奥地利',
+  'AZ': '阿塞拜疆',
+  'BS': '巴哈马',
+  'BH': '巴林',
+  'BD': '孟加拉国',
+  'BB': '巴巴多斯',
+  'BY': '白俄罗斯',
+  'BE': '比利时',
+  'BZ': '伯利兹',
+  'BJ': '贝宁',
+  'BM': '百慕大',
+  'BT': '不丹',
+  'BO': '玻利维亚',
+  'BQ': '博奈尔岛',
+  'BA': '波斯尼亚和黑塞哥维那',
+  'BW': '博茨瓦纳',
+  'BV': '布维岛',
+  'BR': '巴西',
+  'IO': '英属印度洋领地',
+  'BN': '文莱',
+  'BG': '保加利亚',
+  'BF': '布基纳法索',
+  'BI': '布隆迪',
+  'KH': '柬埔寨',
+  'CM': '喀麦隆',
+  'CA': '加拿大',
+  'CV': '佛得角',
+  'KY': '开曼群岛',
+  'CF': '中非共和国',
+  'TD': '乍得',
+  'CL': '智利',
+  'CN': '中国',
+  'CX': '圣诞岛',
+  'CC': '科科斯群岛',
+  'CO': '哥伦比亚',
+  'KM': '科摩罗',
+  'CG': '刚果共和国',
+  'CD': '刚果民主共和国',
+  'CK': '库克群岛',
+  'CR': '哥斯达黎加',
+  'CI': '科特迪瓦',
+  'HR': '克罗地亚',
+  'CU': '古巴',
+  'CW': '库拉索',
+  'CY': '塞浦路斯',
+  'CZ': '捷克',
+  'DK': '丹麦',
+  'DJ': '吉布提',
+  'DM': '多米尼克',
+  'DO': '多米尼加共和国',
+  'EC': '厄瓜多尔',
+  'EG': '埃及',
+  'SV': '萨尔瓦多',
+  'GQ': '赤道几内亚',
+  'ER': '厄立特里亚',
+  'EE': '爱沙尼亚',
+  'ET': '埃塞俄比亚',
+  'FK': '福克兰群岛',
+  'FO': '法罗群岛',
+  'FJ': '斐济',
+  'FI': '芬兰',
+  'FR': '法国',
+  'GF': '法属圭亚那',
+  'PF': '法属波利尼西亚',
+  'TF': '法属南部领地',
+  'GA': '加蓬',
+  'GM': '冈比亚',
+  'GE': '格鲁吉亚',
+  'DE': '德国',
+  'GH': '加纳',
+  'GI': '直布罗陀',
+  'GR': '希腊',
+  'GL': '格陵兰',
+  'GD': '格林纳达',
+  'GP': '瓜德罗普',
+  'GU': '关岛',
+  'GT': '危地马拉',
+  'GG': '根西岛',
+  'GN': '几内亚',
+  'GW': '几内亚比绍',
+  'GY': '圭亚那',
+  'HT': '海地',
+  'HM': '赫德岛和麦克唐纳群岛',
+  'VA': '梵蒂冈',
+  'HN': '洪都拉斯',
+  'HK': '中国香港',
+  'HU': '匈牙利',
+  'IS': '冰岛',
+  'IN': '印度',
+  'ID': '印度尼西亚',
+  'IR': '伊朗',
+  'IQ': '伊拉克',
+  'IE': '爱尔兰',
+  'IM': '马恩岛',
+  'IL': '以色列',
+  'IT': '意大利',
+  'JM': '牙买加',
+  'JP': '日本',
+  'JE': '泽西岛',
+  'JO': '约旦',
+  'KZ': '哈萨克斯坦',
+  'KE': '肯尼亚',
+  'KI': '基里巴斯',
+  'KP': '朝鲜',
+  'KR': '韩国',
+  'KW': '科威特',
+  'KG': '吉尔吉斯斯坦',
+  'LA': '老挝',
+  'LV': '拉脱维亚',
+  'LB': '黎巴嫩',
+  'LS': '莱索托',
+  'LR': '利比里亚',
+  'LY': '利比亚',
+  'LI': '列支敦士登',
+  'LT': '立陶宛',
+  'LU': '卢森堡',
+  'MO': '中国澳门',
+  'MG': '马达加斯加',
+  'MW': '马拉维',
+  'MY': '马来西亚',
+  'MV': '马尔代夫',
+  'ML': '马里',
+  'MT': '马耳他',
+  'MH': '马绍尔群岛',
+  'MQ': '马提尼克',
+  'MR': '毛里塔尼亚',
+  'MU': '毛里求斯',
+  'YT': '马约特',
+  'MX': '墨西哥',
+  'FM': '密克罗尼西亚',
+  'MD': '摩尔多瓦',
+  'MC': '摩纳哥',
+  'MN': '蒙古',
+  'ME': '黑山',
+  'MS': '蒙特塞拉特',
+  'MA': '摩洛哥',
+  'MZ': '莫桑比克',
+  'MM': '缅甸',
+  'NA': '纳米比亚',
+  'NR': '瑙鲁',
+  'NP': '尼泊尔',
+  'NL': '荷兰',
+  'NC': '新喀里多尼亚',
+  'NZ': '新西兰',
+  'NI': '尼加拉瓜',
+  'NE': '尼日尔',
+  'NG': '尼日利亚',
+  'NU': '纽埃',
+  'NF': '诺福克岛',
+  'MK': '北马其顿',
+  'MP': '北马里亚纳群岛',
+  'NO': '挪威',
+  'OM': '阿曼',
+  'PK': '巴基斯坦',
+  'PW': '帕劳',
+  'PS': '巴勒斯坦',
+  'PA': '巴拿马',
+  'PG': '巴布亚新几内亚',
+  'PY': '巴拉圭',
+  'PE': '秘鲁',
+  'PH': '菲律宾',
+  'PN': '皮特凯恩',
+  'PL': '波兰',
+  'PT': '葡萄牙',
+  'PR': '波多黎各',
+  'QA': '卡塔尔',
+  'RE': '留尼汪',
+  'RO': '罗马尼亚',
+  'RU': '俄罗斯',
+  'RW': '卢旺达',
+  'BL': '圣巴泰勒米',
+  'SH': '圣赫勒拿',
+  'KN': '圣基茨和尼维斯',
+  'LC': '圣卢西亚',
+  'MF': '圣马丁',
+  'PM': '圣皮埃尔和密克隆',
+  'VC': '圣文森特和格林纳丁斯',
+  'WS': '萨摩亚',
+  'SM': '圣马力诺',
+  'ST': '圣多美和普林西比',
+  'SA': '沙特阿拉伯',
+  'SN': '塞内加尔',
+  'RS': '塞尔维亚',
+  'SC': '塞舌尔',
+  'SL': '塞拉利昂',
+  'SG': '新加坡',
+  'SX': '圣马丁',
+  'SK': '斯洛伐克',
+  'SI': '斯洛文尼亚',
+  'SB': '所罗门群岛',
+  'SO': '索马里',
+  'ZA': '南非',
+  'GS': '南乔治亚和南桑威奇群岛',
+  'SS': '南苏丹',
+  'ES': '西班牙',
+  'LK': '斯里兰卡',
+  'SD': '苏丹',
+  'SR': '苏里南',
+  'SJ': '斯瓦尔巴和扬马延',
+  'SZ': '斯威士兰',
+  'SE': '瑞典',
+  'CH': '瑞士',
+  'SY': '叙利亚',
+  'TW': '中国台湾',
+  'TJ': '塔吉克斯坦',
+  'TZ': '坦桑尼亚',
+  'TH': '泰国',
+  'TL': '东帝汶',
+  'TG': '多哥',
+  'TK': '托克劳',
+  'TO': '汤加',
+  'TT': '特立尼达和多巴哥',
+  'TN': '突尼斯',
+  'TR': '土耳其',
+  'TM': '土库曼斯坦',
+  'TC': '特克斯和凯科斯群岛',
+  'TV': '图瓦卢',
+  'UG': '乌干达',
+  'UA': '乌克兰',
+  'AE': '阿联酋',
+  'GB': '英国',
+  'US': '美国',
+  'UM': '美国本土外小岛屿',
+  'UY': '乌拉圭',
+  'UZ': '乌兹别克斯坦',
+  'VU': '瓦努阿图',
+  'VE': '委内瑞拉',
+  'VN': '越南',
+  'VG': '英属维尔京群岛',
+  'VI': '美属维尔京群岛',
+  'WF': '瓦利斯和富图纳',
+  'EH': '西撒哈拉',
+  'YE': '也门',
+  'ZM': '赞比亚',
+  'ZW': '津巴布韦'
+};
+
+// 获取国家代码
+function getCountryCode(countryName) {
+  for (const [code, name] of Object.entries(countryCodes)) {
+    if (name === countryName) {
+      return code;
+    }
+  }
+  return 'XX';
+}
+
+// 获取国家名称
+function getCountryName(code) {
+  return countryCodes[code] || '未知';
+}
+
 // 从数据库加载数据
 async function loadData() {
   try {
+    // 创建邮箱配置表（如果不存在）
+    try {
+      await run(`CREATE TABLE IF NOT EXISTS emailConfigs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE,
+        smtpServer TEXT,
+        smtpPort INTEGER,
+        authCode TEXT,
+        status TEXT DEFAULT 'active',
+        created_at TEXT,
+        updated_at TEXT
+      )`);
+      console.log('已创建邮箱配置表');
+    } catch (e) {
+      // 表可能已存在，忽略错误
+    }
+    
+    // 插入默认邮箱配置
+    try {
+      await run(`INSERT OR IGNORE INTO emailConfigs (email, smtpServer, smtpPort, authCode, status, created_at, updated_at) 
+        VALUES ('gxhan0420@163.com', 'smtp.163.com', 465, 'RGhwVqeQbTxVXTeE', 'active', ?, ?)`, 
+        [new Date().toISOString(), new Date().toISOString()]);
+      console.log('已插入默认邮箱配置');
+    } catch (e) {
+      // 数据可能已存在，忽略错误
+    }
+    
+    // 检查并添加采购单的 dataSource 字段
+    try {
+      await run('ALTER TABLE purchaseOrders ADD COLUMN dataSource TEXT');
+      console.log('已添加采购单 dataSource 字段');
+    } catch (e) {
+      // 字段可能已存在，忽略错误
+    }
+    
+    // 检查并添加采购单的 updated_at 字段
+    try {
+      await run('ALTER TABLE purchaseOrders ADD COLUMN updated_at TEXT');
+      console.log('已添加采购单 updated_at 字段');
+    } catch (e) {
+      // 字段可能已存在，忽略错误
+    }
+    
+    // 检查并添加供应商开票状态字段
+    try {
+      await run('ALTER TABLE suppliers ADD COLUMN invoiceStatus TEXT');
+      console.log('已添加供应商开票状态字段');
+    } catch (e) {
+      // 字段可能已存在，忽略错误
+    }
+    
     // 检查并添加供应商附件字段
     try {
       await run('ALTER TABLE suppliers ADD COLUMN attachments TEXT');
@@ -672,8 +997,22 @@ app.get('/api/products', checkPermission(['业务员', '采购员']), async (req
   }
 });
 
+app.get('/api/products/:id', checkPermission(['业务员', '采购员']), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const products = await query('SELECT * FROM products WHERE id = ?', [id]);
+    if (products.length === 0) {
+      return res.status(404).json({ error: '产品不存在' });
+    }
+    res.json(products[0]);
+  } catch (error) {
+    console.error('获取产品信息失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
 app.post('/api/products', checkPermission(['业务员', '采购员']), async (req, res) => {
-  const { id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, purchasePrice, purchaseLink, features } = req.body;
+  const { id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, purchasePrice, purchaseLink, purchaseChannel, features } = req.body;
   try {
     // 检查产品ID是否已存在
     const existing = await query('SELECT * FROM products WHERE id = ?', [id]);
@@ -686,9 +1025,9 @@ app.post('/api/products', checkPermission(['业务员', '采购员']), async (re
       return res.status(400).json({ error: '供应商ID不存在，请选择正确的供应商' });
     }
     const created_at = new Date().toISOString();
-    await run('INSERT INTO products (id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, supplierName, purchasePriceLess100, purchasePriceMore100, purchasePrice, purchaseLink, features, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-      [id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, supplier[0].name, purchasePrice, purchasePrice, purchasePrice, purchaseLink, features, created_at]);
-    const newProduct = { id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, supplierName: supplier[0].name, purchasePrice, purchaseLink, features, created_at };
+    await run('INSERT INTO products (id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, supplierName, purchasePriceLess100, purchasePriceMore100, purchasePrice, purchaseLink, purchaseChannel, features, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+      [id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, supplier[0].name, purchasePrice, purchasePrice, purchasePrice, purchaseLink, purchaseChannel, features, created_at]);
+    const newProduct = { id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, supplierName: supplier[0].name, purchasePrice, purchaseLink, purchaseChannel, features, created_at };
     // 重新加载数据
     await loadData();
     res.json(newProduct);
@@ -700,7 +1039,7 @@ app.post('/api/products', checkPermission(['业务员', '采购员']), async (re
 
 app.put('/api/products/:id', checkPermission(['业务员', '采购员']), async (req, res) => {
   const { id } = req.params;
-  const { englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, purchasePrice, purchaseLink, features } = req.body;
+  const { englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, purchasePrice, purchaseLink, purchaseChannel, features } = req.body;
   try {
     // 检查产品是否存在
     const existing = await query('SELECT * FROM products WHERE id = ?', [id]);
@@ -712,9 +1051,9 @@ app.put('/api/products/:id', checkPermission(['业务员', '采购员']), async 
     if (supplier.length === 0) {
       return res.status(400).json({ error: '供应商ID不存在，请选择正确的供应商' });
     }
-    await run('UPDATE products SET englishName = ?, chineseName = ?, salesPriceLess100 = ?, salesPriceMore100 = ?, supplierId = ?, supplierName = ?, purchasePriceLess100 = ?, purchasePriceMore100 = ?, purchasePrice = ?, purchaseLink = ?, features = ? WHERE id = ?', 
-      [englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, supplier[0].name, purchasePrice, purchasePrice, purchasePrice, purchaseLink, features, id]);
-    const updatedProduct = { ...existing[0], englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, supplierName: supplier[0].name, purchasePrice, purchaseLink, features };
+    await run('UPDATE products SET englishName = ?, chineseName = ?, salesPriceLess100 = ?, salesPriceMore100 = ?, supplierId = ?, supplierName = ?, purchasePriceLess100 = ?, purchasePriceMore100 = ?, purchaseLink = ?, purchaseChannel = ?, features = ? WHERE id = ?', 
+      [englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, supplier[0].name, purchasePrice, purchasePrice, purchaseLink || '', purchaseChannel || '', features || '', id]);
+    const updatedProduct = { ...existing[0], englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, supplierName: supplier[0].name, purchasePrice, purchaseLink: purchaseLink || '', purchaseChannel: purchaseChannel || '', features: features || '' };
     // 重新加载数据
     await loadData();
     res.json(updatedProduct);
@@ -743,6 +1082,19 @@ app.delete('/api/products/:id', checkPermission(['业务员', '采购员']), asy
 });
 
 // 客户 API
+// 获取国家列表（支持模糊搜索）
+app.get('/api/countries', checkPermission(['业务员', '采购员']), (req, res) => {
+  const { search } = req.query;
+  let countries = Object.entries(countryCodes).map(([code, name]) => ({ code, name }));
+  
+  if (search) {
+    countries = countries.filter(c => c.name.includes(search) || c.code.toLowerCase().includes(search.toLowerCase()));
+  }
+  
+  countries.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+  res.json(countries);
+});
+
 app.get('/api/customers', checkPermission(['业务员', '采购员']), async (req, res) => {
   try {
     const { search } = req.query;
@@ -763,23 +1115,41 @@ app.get('/api/customers', checkPermission(['业务员', '采购员']), async (re
   }
 });
 
-app.post('/api/customers', checkPermission(['业务员', '采购员']), async (req, res) => {
-  const { id, companyName, companyShortName, contact, country, website, companySize } = req.body;
+app.get('/api/customers/:id', checkPermission(['业务员', '采购员']), async (req, res) => {
+  const { id } = req.params;
   try {
-    // 检查客户编号是否已存在
-    const existingId = await query('SELECT * FROM customers WHERE id = ?', [id]);
-    if (existingId.length > 0) {
-      return res.status(400).json({ error: '客户编号已存在，请重新输入' });
+    const customers = await query('SELECT * FROM customers WHERE id = ?', [id]);
+    if (customers.length === 0) {
+      return res.status(404).json({ error: '客户不存在' });
     }
+    res.json(customers[0]);
+  } catch (error) {
+    console.error('获取客户信息失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+app.post('/api/customers', checkPermission(['业务员', '采购员']), async (req, res) => {
+  const { companyName, companyShortName, contact, country, website, companySize } = req.body;
+  try {
     // 检查公司名称是否已存在
     const existingName = await query('SELECT * FROM customers WHERE companyName = ?', [companyName]);
     if (existingName.length > 0) {
       return res.status(400).json({ error: '公司名称已存在，请重新输入' });
     }
+    
+    // 获取国家代码
+    const countryCode = getCountryCode(country);
+    
+    // 生成客户ID：国家代码 + 4位流水号
+    const existingCustomers = await query('SELECT * FROM customers WHERE countryCode = ?', [countryCode]);
+    const nextNumber = existingCustomers.length + 1;
+    const id = countryCode + String(nextNumber).padStart(4, '0');
+    
     const created_at = new Date().toISOString();
-    await run('INSERT INTO customers (id, companyName, companyShortName, contact, country, website, companySize, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-      [id, companyName, companyShortName, contact, country, website, companySize, created_at]);
-    const newCustomer = { id, companyName, companyShortName, contact, country, website, companySize, created_at };
+    await run('INSERT INTO customers (id, companyName, companyShortName, contact, country, countryCode, website, companySize, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+      [id, companyName, companyShortName, contact, country, countryCode, website, companySize, created_at]);
+    const newCustomer = { id, companyName, companyShortName, contact, country, countryCode, website, companySize, created_at };
     // 重新加载数据
     await loadData();
     res.json(newCustomer);
@@ -850,6 +1220,20 @@ app.get('/api/inventory', checkPermission(['业务员', '采购员']), async (re
     res.json(inventory);
   } catch (error) {
     console.error('获取库存列表失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+app.get('/api/inventory/:productId', checkPermission(['业务员', '采购员']), async (req, res) => {
+  const { productId } = req.params;
+  try {
+    const inventory = await query('SELECT * FROM inventory WHERE productId = ?', [productId]);
+    if (inventory.length === 0) {
+      return res.status(404).json({ error: '库存记录不存在' });
+    }
+    res.json(inventory[0]);
+  } catch (error) {
+    console.error('获取库存信息失败:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });
@@ -1370,10 +1754,122 @@ app.post('/api/purchase-orders/generate', checkPermission(['业务员', '采购�
     }
     
     const newPurchaseOrders = await generatePurchaseOrdersFromPI(pi);
-    res.json(newPurchaseOrders);
+    res.json({ count: newPurchaseOrders.length, purchaseOrders: newPurchaseOrders });
   } catch (error) {
     console.error('生成采购单失败:', error);
     res.status(400).json({ error: error.message });
+  }
+});
+
+// 新增采购单
+app.post('/api/purchase-orders', checkPermission(['业务员', '采购员']), async (req, res) => {
+  const { piId, supplierId, note, products } = req.body;
+  
+  try {
+    // 验证供应商是否存在
+    const suppliers = await query('SELECT * FROM suppliers WHERE id = ?', [supplierId]);
+    if (suppliers.length === 0) {
+      return res.status(404).json({ error: '供应商不存在' });
+    }
+    const supplierName = suppliers[0].name;
+    
+    // 验证产品信息
+    if (!products || products.length === 0) {
+      return res.status(400).json({ error: '请至少添加一个商品' });
+    }
+    
+    // 计算总价
+    let totalAmount = 0;
+    const processedProducts = products.map(product => {
+      const totalPrice = (parseFloat(product.unitPrice) * product.quantity).toFixed(2);
+      totalAmount += parseFloat(totalPrice);
+      return {
+        productId: product.productId,
+        productName: product.productName || '',
+        quantity: product.quantity,
+        unitPrice: product.unitPrice,
+        totalPrice,
+        purchaseLink: product.purchaseLink || ''
+      };
+    });
+    
+    // 生成采购单号
+    const now = new Date();
+    const orderId = 'CG' + now.getFullYear().toString().slice(2) + 
+                   String(now.getMonth() + 1).padStart(2, '0') + 
+                   String(now.getDate()).padStart(2, '0') + 
+                   String(Date.now()).slice(-3);
+    
+    // 获取关联PI的客户信息（如果有）
+    let customerName = '';
+    if (piId) {
+      const piList = await query('SELECT * FROM pi WHERE id = ?', [piId]);
+      if (piList.length > 0) {
+        customerName = piList[0].customerName;
+      }
+    }
+    
+    // 根据是否有PI单号设置数据来源
+    const dataSource = piId ? '从PI单中生成' : '手动新增';
+    
+    // 插入数据库
+    await run(`INSERT INTO purchaseOrders 
+      (id, piId, supplierId, supplierName, products, totalAmount, status, created_at, dataSource)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [orderId, piId || '', supplierId, supplierName, JSON.stringify(processedProducts), 
+       totalAmount.toFixed(2), '已生成', now.toISOString(), dataSource]
+    );
+    
+    // 重新加载数据
+    await loadData();
+    
+    // 返回创建的采购单
+    const newPurchaseOrder = {
+      id: orderId,
+      piId: piId || '',
+      supplierId,
+      supplierName,
+      products: processedProducts,
+      totalAmount: totalAmount.toFixed(2),
+      status: '已生成',
+      created_at: now.toISOString(),
+      dataSource
+    };
+    
+    res.json(newPurchaseOrder);
+  } catch (error) {
+    console.error('保存采购单失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 删除采购单
+app.delete('/api/purchase-orders/:id', checkPermission(['业务员', '采购员']), async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // 检查采购单是否存在
+    const purchaseOrders = await query('SELECT * FROM purchaseOrders WHERE id = ?', [id]);
+    if (purchaseOrders.length === 0) {
+      return res.status(404).json({ error: '采购单不存在' });
+    }
+    
+    // 检查采购单状态，只有"已生成"状态可以删除
+    const purchaseOrder = purchaseOrders[0];
+    if (purchaseOrder.status !== '已生成') {
+      return res.status(400).json({ error: '只有"已生成"状态的采购单才能删除' });
+    }
+    
+    // 删除采购单
+    await run('DELETE FROM purchaseOrders WHERE id = ?', [id]);
+    
+    // 重新加载数据
+    await loadData();
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('删除采购单失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
 });
 
@@ -1381,6 +1877,7 @@ app.post('/api/purchase-orders/generate', checkPermission(['业务员', '采购�
 app.get('/api/purchase-orders', checkPermission(['业务员', '采购员']), async (req, res) => {
   try {
     const { search } = req.query;
+    console.log('查询采购单列表，search:', search);
     let purchaseOrders;
     if (search) {
       purchaseOrders = await query(`
@@ -1391,6 +1888,7 @@ app.get('/api/purchase-orders', checkPermission(['业务员', '采购员']), asy
     } else {
       purchaseOrders = await query('SELECT * FROM purchaseOrders ORDER BY created_at DESC');
     }
+    console.log('查询结果数量:', purchaseOrders.length);
     
     // 获取所有PI信息
     const piRecords = await query('SELECT * FROM pi');
@@ -1481,7 +1979,7 @@ app.get('/api/purchase-orders/:id', checkPermission(['业务员', '采购员']),
 // 编辑采购单
 app.put('/api/purchase-orders/:id', checkPermission(['业务员', '采购员']), async (req, res) => {
   const { id } = req.params;
-  const { products } = req.body;
+  const { supplierId, note, products } = req.body;
   
   try {
     // 检查采购单是否存在
@@ -1501,11 +1999,11 @@ app.put('/api/purchase-orders/:id', checkPermission(['业务员', '采购员']),
       };
     });
     
-    // 更新数据库
-    await run('UPDATE purchaseOrders SET products = ?, totalAmount = ? WHERE id = ?', 
-      [JSON.stringify(updatedProducts), totalAmount.toFixed(2), id]);
+    // 更新数据库 - 支持更新供应商ID和产品
+    await run('UPDATE purchaseOrders SET supplierId = ?, products = ?, totalAmount = ? WHERE id = ?', 
+      [supplierId, JSON.stringify(updatedProducts), totalAmount.toFixed(2), id]);
     
-    const updatedPurchaseOrder = { ...purchaseOrders[0], products: updatedProducts, totalAmount: totalAmount.toFixed(2) };
+    const updatedPurchaseOrder = { ...purchaseOrders[0], supplierId, products: updatedProducts, totalAmount: totalAmount.toFixed(2) };
     // 重新加载数据
     await loadData();
     res.json(updatedPurchaseOrder);
@@ -1770,15 +2268,13 @@ app.put('/api/suppliers/:id/invoice-status', checkPermission(['业务员', '采�
       return res.status(404).json({ error: '供应商不存在' });
     }
     
-    const updated_at = new Date().toISOString();
-    
-    // 更新开票状态
-    await run('UPDATE suppliers SET invoiceStatus = ?, updated_at = ? WHERE id = ?', 
-      [invoiceStatus, updated_at, id]);
+    // 更新开票状态（只更新存在的字段）
+    await run('UPDATE suppliers SET invoiceStatus = ? WHERE id = ?', 
+      [invoiceStatus, id]);
     
     // 返回更新后的供应商
     const updatedSuppliers = await query('SELECT * FROM suppliers WHERE id = ?', [id]);
-    res.json(updatedSuppliers[0]);
+    res.json({ ...updatedSuppliers[0], invoiceStatus });
   } catch (error) {
     console.error('更新开票状态失败:', error);
     res.status(500).json({ error: '服务器内部错误' });
@@ -1856,15 +2352,14 @@ app.post('/api/suppliers/:id/attachments', checkPermission(['业务员', '采购
       uploadedAt: new Date().toISOString()
     }));
     
-    const updated_at = new Date().toISOString();
     const allAttachments = [...existingAttachments, ...newAttachments];
     
     // 限制最多5个附件
     const attachmentsToSave = allAttachments.slice(-5);
     
     // 更新数据库
-    await run('UPDATE suppliers SET attachments = ?, updated_at = ? WHERE id = ?', 
-      [JSON.stringify(attachmentsToSave), updated_at, id]);
+    await run('UPDATE suppliers SET attachments = ? WHERE id = ?', 
+      [JSON.stringify(attachmentsToSave), id]);
     
     res.json({ 
       success: true, 
@@ -2011,13 +2506,13 @@ app.put('/api/purchase-orders/:id/products', checkPermission(['业务员', '采�
       [JSON.stringify(existingProducts), totalAmount, updated_at, id]);
     
     // 更新库存（如果需要）
-    products.forEach(productUpdate => {
+    for (const productUpdate of products) {
       if (productUpdate.inventory !== undefined && existingProducts[productUpdate.index]) {
         const productId = existingProducts[productUpdate.index].productId;
-        run('UPDATE inventory SET quantity = ?, updated_at = ? WHERE productId = ?', 
+        await run('UPDATE inventory SET quantity = ?, updated_at = ? WHERE productId = ?', 
           [productUpdate.inventory, updated_at, productId]);
       }
-    });
+    }
     
     // 重新加载数据
     await loadData();
@@ -2025,6 +2520,17 @@ app.put('/api/purchase-orders/:id/products', checkPermission(['业务员', '采�
     res.json({ success: true, message: '商品信息更新成功' });
   } catch (error) {
     console.error('更新商品信息失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// 获取邮箱配置列表
+app.get('/api/email-configs', checkPermission(['业务员', '采购员']), async (req, res) => {
+  try {
+    const emailConfigs = await query('SELECT id, email, status FROM emailConfigs WHERE status = "active"');
+    res.json(emailConfigs);
+  } catch (error) {
+    console.error('获取邮箱配置列表失败:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });
@@ -2274,10 +2780,18 @@ async function sendEmail(to, subject, text, reminderId, purchaseOrderId) {
     });
 }
 
+// 获取当前北京时间（UTC+8）
+function getBeijingTime() {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const beijingTime = new Date(utc + 8 * 3600000);
+  return beijingTime.toISOString().slice(0, 16); // 返回格式：YYYY-MM-DDTHH:mm
+}
+
 // 检查提醒任务
 function checkReminders() {
-  const now = new Date().toISOString();
-  console.log('检查提醒开始，当前时间:', now);
+  const now = getBeijingTime();
+  console.log('检查提醒开始，当前北京时间:', now);
   
   // 先获取所有提醒记录，看看数据库中的实际数据
   db.all('SELECT * FROM reminders', (err, allReminders) => {
@@ -2343,8 +2857,8 @@ function startServer() {
   app.listen(PORT, () => {
     console.log(`后端服务器运行在 http://localhost:${PORT}`);
     
-    // 每5分钟检查一次提醒
-    setInterval(checkReminders, 5 * 60 * 1000);
+    // 每1分钟检查一次提醒（减少延迟）
+    setInterval(checkReminders, 1 * 60 * 1000);
     
     // 启动时检查一次
     checkReminders();

@@ -1,1 +1,8 @@
 node_modules
+*.db
+*.db-journal
+.DS_Store
+.env
+*.log
+uploads/supplier-attachments/*
+!uploads/supplier-attachments/.gitkeep
