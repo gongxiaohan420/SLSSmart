@@ -1,7 +1,0 @@
-[phases]
-install = "npm install --only=production"
-build = "true"
-start = "node server.js"
-
-[env]
-PORT = "4000"
