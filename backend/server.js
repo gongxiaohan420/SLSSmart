@@ -1113,11 +1113,18 @@ app.post('/api/email-configs', (req, res) => {
   }
 });
 
+// 健康检查端点
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // 启动服务器
 function startServer() {
-  app.listen(PORT, () => {
-    console.log(`后端服务器运行在 http://localhost:${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Backend server running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Database path: ${dbPath}`);
+    console.log('Server is ready to accept requests');
     
     // 每1分钟检查一次提醒
     setInterval(checkReminders, 1 * 60 * 1000);
@@ -1128,8 +1135,15 @@ function startServer() {
 }
 
 // 当数据库初始化完成后启动服务器
-initDatabase(() => {
+initDatabase((err) => {
+  if (err) {
+    console.error('Failed to initialize database:', err.message);
+    process.exit(1);
+  }
   loadData();
   initializeTemplates();
   startServer();
+}).catch((err) => {
+  console.error('Database initialization error:', err.message);
+  process.exit(1);
 });
