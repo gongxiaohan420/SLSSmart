@@ -48,58 +48,11 @@ async function initDatabase(callback) {
   
   const SQL = await initSqlJs();
   
-  // 检查数据库文件是否存在
-  let fileBuffer = null;
-  try {
-    fileBuffer = fs.readFileSync(dbPath);
-    console.log('Loading existing database');
-  } catch (err) {
-    console.log('Creating new database');
-  }
+  // 使用纯内存数据库，避免文件系统问题
+  db = new SQL.Database();
+  console.log('Created in-memory database');
   
-  if (fileBuffer) {
-    db = new SQL.Database(fileBuffer);
-  } else {
-    db = new SQL.Database();
-  }
-  
-  // 检查表是否存在，并升级现有表结构
-  function upgradeTable(tableName, columnsToAdd) {
-    try {
-      const result = db.exec(`PRAGMA table_info(${tableName})`);
-      if (result && result.length > 0) {
-        const existingColumns = result[0].values.map(row => row[1]);
-        columnsToAdd.forEach(col => {
-          if (!existingColumns.includes(col.name)) {
-            try {
-              db.run(`ALTER TABLE ${tableName} ADD COLUMN ${col.name} ${col.type}`);
-              console.log(`Added column ${col.name} to ${tableName}`);
-            } catch (err) {
-              console.error(`Error adding column ${col.name} to ${tableName}:`, err.message);
-            }
-          }
-        });
-      }
-    } catch (err) {
-      console.error(`Error checking table ${tableName}:`, err.message);
-    }
-  }
-  
-  // 升级 customers 表
-  upgradeTable('customers', [
-    { name: 'countryCode', type: 'TEXT' },
-    { name: 'website', type: 'TEXT' }
-  ]);
-  
-  // 升级 products 表
-  upgradeTable('products', [
-    { name: 'purchaseChannel', type: 'TEXT' }
-  ]);
-  
-  // 升级 purchaseOrders 表
-  upgradeTable('purchaseOrders', [
-    { name: 'dataSource', type: 'TEXT' }
-  ]);
+  // 不需要升级逻辑，因为每次都是新建数据库
   
   const tables = [
     {
@@ -397,13 +350,6 @@ function query(sql, params = []) {
 function run(sql, params = []) {
   try {
     db.run(sql, params);
-    // 保存数据库到文件
-    try {
-      const data = db.export();
-      fs.writeFileSync(dbPath, Buffer.from(data));
-    } catch (err) {
-      console.error('Error saving database:', err.message);
-    }
     return { lastID: db.getRowsModified ? db.getRowsModified() : 0, changes: 1 };
   } catch (err) {
     throw err;
