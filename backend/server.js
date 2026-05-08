@@ -1,6 +1,6 @@
 const express = require('express');
 const XLSX = require('xlsx');
-const initSqlJs = require('sql.js');
+const initSqlJs = require('sql.js/dist/sql-asm.js');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
