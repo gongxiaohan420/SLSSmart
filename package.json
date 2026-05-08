@@ -2,7 +2,7 @@
   "name": "full-stack-project",
   "version": "1.0.0",
   "description": "Full stack project",
-  "main": "backend/simple-server.js",
+  "main": "server.js",
   "scripts": {
     "dev:frontend": "vite",
     "dev:backend": "node backend/server.js",
