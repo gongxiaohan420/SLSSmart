@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>采购管理系统</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/env.js"></script>
 </head>
 <body class="bg-gray-100">
   <!-- 顶部导航 -->
@@ -48,6 +49,11 @@
   <script>
     let currentTable = 'purchaseOrders';
     let expandedPiGroups = new Set();
+    
+    // API基础地址配置 - 支持环境变量
+    const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+      ? '' 
+      : (window.ENV?.API_URL || '');
 
     // 检查登录状态
     function checkLogin() {
@@ -105,7 +111,7 @@
       updateMenuActive('采购单管理');
 
       try {
-        const response = await fetch('/api/purchase-orders', {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -131,7 +137,7 @@
       updateMenuActive('供应商管理');
 
       try {
-        const response = await fetch('/api/suppliers', {
+        const response = await fetch(API_BASE_URL + '/api/suppliers', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -176,7 +182,7 @@
       updateMenuActive('产品管理');
 
       try {
-        const response = await fetch('/api/products', {
+        const response = await fetch(API_BASE_URL + '/api/products', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -222,7 +228,7 @@
       updateMenuActive('客户管理');
 
       try {
-        const response = await fetch('/api/customers', {
+        const response = await fetch(API_BASE_URL + '/api/customers', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -267,7 +273,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/inventory', {
+        const response = await fetch(API_BASE_URL + '/api/inventory', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -537,7 +543,7 @@
       }
 
       try {
-        const response = await fetch('/api/purchase-orders?search=' + encodeURIComponent(searchTerm), {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders?search=' + encodeURIComponent(searchTerm), {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -567,7 +573,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/purchase-orders/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/' + id, {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -581,7 +587,7 @@
         }
 
         // 获取供应商信息
-        const supplierResponse = await fetch('/api/suppliers/' + purchaseOrder.supplierId, {
+        const supplierResponse = await fetch(API_BASE_URL + '/api/suppliers/' + purchaseOrder.supplierId, {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -591,7 +597,7 @@
         const supplier = await supplierResponse.json();
 
         // 获取产品库存信息
-        const inventoryResponse = await fetch('/api/inventory', {
+        const inventoryResponse = await fetch(API_BASE_URL + '/api/inventory', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -600,7 +606,7 @@
         const inventoryList = await inventoryResponse.json();
 
         // 获取产品信息列表（用于获取采购链接和采购渠道）
-        const productsResponse = await fetch('/api/products', {
+        const productsResponse = await fetch(API_BASE_URL + '/api/products', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -609,7 +615,7 @@
         const productsList = await productsResponse.json();
 
         // 获取设置的提醒
-        const remindersResponse = await fetch('/api/reminders/' + id, {
+        const remindersResponse = await fetch(API_BASE_URL + '/api/reminders/' + id, {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -618,7 +624,7 @@
         const reminders = await remindersResponse.json();
 
         // 获取提醒日志
-        const logsResponse = await fetch('/api/purchase-orders/' + id + '/reminder-logs', {
+        const logsResponse = await fetch(API_BASE_URL + '/api/purchase-orders/' + id + '/reminder-logs', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -629,7 +635,7 @@
         // 获取同PI的其他采购单列表
         let siblingOrders = [];
         if (purchaseOrder.piId) {
-          const siblingResponse = await fetch('/api/purchase-orders/by-pi/' + purchaseOrder.piId, {
+          const siblingResponse = await fetch(API_BASE_URL + '/api/purchase-orders/by-pi/' + purchaseOrder.piId, {
             headers: {
               'username': user.username,
               'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -695,7 +701,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/purchase-orders/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/' + id, {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -709,7 +715,7 @@
         }
 
         // 获取供应商列表
-        const suppliersResponse = await fetch('/api/suppliers', {
+        const suppliersResponse = await fetch(API_BASE_URL + '/api/suppliers', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -718,7 +724,7 @@
         const suppliers = await suppliersResponse.json();
 
         // 获取产品列表
-        const productsResponse = await fetch('/api/products', {
+        const productsResponse = await fetch(API_BASE_URL + '/api/products', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -828,7 +834,7 @@
       }
 
       try {
-        const response = await fetch('/api/purchase-orders/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/' + id, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -861,7 +867,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/purchase-orders/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/' + id, {
           method: 'DELETE',
           headers: {
             'username': user.username,
@@ -887,7 +893,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/purchase-orders/' + id + '/status', {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/' + id + '/status', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -935,7 +941,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/purchase-orders/' + id + '/tracking', {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/' + id + '/tracking', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -965,7 +971,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/purchase-orders/' + purchaseOrderId + '/tracking/' + index, {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/' + purchaseOrderId + '/tracking/' + index, {
           method: 'DELETE',
           headers: {
             'username': user.username,
@@ -1011,7 +1017,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/purchase-orders/export/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/export/' + id, {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -1044,7 +1050,7 @@
 
       try {
         // 获取供应商列表
-        const suppliersResponse = await fetch('/api/suppliers', {
+        const suppliersResponse = await fetch(API_BASE_URL + '/api/suppliers', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -1053,7 +1059,7 @@
         const suppliers = await suppliersResponse.json();
 
         // 获取产品列表
-        const productsResponse = await fetch('/api/products', {
+        const productsResponse = await fetch(API_BASE_URL + '/api/products', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -1186,7 +1192,7 @@
       }
 
       try {
-        const response = await fetch('/api/purchase-orders', {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1216,7 +1222,7 @@
 
       try {
         // 获取PI列表
-        const piResponse = await fetch('/api/pi', {
+        const piResponse = await fetch(API_BASE_URL + '/api/pi', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -1242,7 +1248,7 @@
       const piId = document.getElementById('generate-pi-select').value;
 
       try {
-        const response = await fetch('/api/purchase-orders/generate', {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/generate', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1276,7 +1282,7 @@
       // 获取邮箱配置列表
       let emailOptions = '<option value="gxhan0420@163.com">gxhan0420@163.com</option>';
       try {
-        const response = await fetch('/api/email-configs', {
+        const response = await fetch(API_BASE_URL + '/api/email-configs', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -1305,7 +1311,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/reminders/' + purchaseOrderId, {
+        const response = await fetch(API_BASE_URL + '/api/reminders/' + purchaseOrderId, {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -1345,7 +1351,7 @@
       }
 
       try {
-        const response = await fetch('/api/reminders', {
+        const response = await fetch(API_BASE_URL + '/api/reminders', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1390,7 +1396,7 @@
       }
 
       try {
-        const response = await fetch('/api/reminders/' + reminderId, {
+        const response = await fetch(API_BASE_URL + '/api/reminders/' + reminderId, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -1420,7 +1426,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/reminders/' + reminderId, {
+        const response = await fetch(API_BASE_URL + '/api/reminders/' + reminderId, {
           method: 'DELETE',
           headers: {
             'username': user.username,
@@ -1447,7 +1453,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/purchase-orders/history/' + productId, {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/history/' + productId, {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -1508,7 +1514,7 @@
       });
 
       try {
-        const response = await fetch('/api/purchase-orders/' + purchaseOrderId + '/products', {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/' + purchaseOrderId + '/products', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -1541,7 +1547,7 @@
       }
       
       try {
-        const response = await fetch('/api/purchase-orders/' + purchaseOrderId, {
+        const response = await fetch(API_BASE_URL + '/api/purchase-orders/' + purchaseOrderId, {
           method: 'DELETE',
           headers: {
             'username': user.username,
@@ -1569,7 +1575,7 @@
       updateMenuActive('销售报价单管理');
 
       try {
-        const response = await fetch('/api/pi', {
+        const response = await fetch(API_BASE_URL + '/api/pi', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -1624,7 +1630,7 @@
       if (!user) return;
 
       try {
-        const response = await fetch('/api/pi/export/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/pi/export/' + id, {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -1653,13 +1659,13 @@
 
       try {
         const [customerResponse, productResponse] = await Promise.all([
-          fetch('/api/customers', {
+          fetch(API_BASE_URL + '/api/customers', {
             headers: {
               'username': user.username,
               'password': user.role === '业务员' ? 'sales123' : 'purchase123'
             }
           }),
-          fetch('/api/products', {
+          fetch(API_BASE_URL + '/api/products', {
             headers: {
               'username': user.username,
               'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -1774,7 +1780,7 @@
       });
 
       try {
-        const response = await fetch('/api/pi', {
+        const response = await fetch(API_BASE_URL + '/api/pi', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1817,7 +1823,7 @@
       const contact = document.getElementById('create-supplier-contact').value;
       const contactInfo = document.getElementById('create-supplier-contactinfo').value;
       try {
-        const response = await fetch('/api/suppliers', {
+        const response = await fetch(API_BASE_URL + '/api/suppliers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
           body: JSON.stringify({ id, name, companyType, mainProducts, contact, contactInfo })
@@ -1839,7 +1845,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/suppliers/' + id, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } });
+        const response = await fetch(API_BASE_URL + '/api/suppliers/' + id, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } });
         const supplier = await response.json();
         let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑供应商</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商ID</label><input type="text" id="edit-supplier-id" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.id + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商名称</label><input type="text" id="edit-supplier-name" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.name + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司类型</label><input type="text" id="edit-supplier-type" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.companyType + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">主营产品</label><input type="text" id="edit-supplier-products" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.mainProducts + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="edit-supplier-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.contact + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系方式</label><input type="text" id="edit-supplier-contactinfo" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.contactInfo + '"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="updateSupplier()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
         document.body.insertAdjacentHTML('beforeend', modalHTML);
@@ -1858,7 +1864,7 @@
       const contact = document.getElementById('edit-supplier-contact').value;
       const contactInfo = document.getElementById('edit-supplier-contactinfo').value;
       try {
-        const response = await fetch('/api/suppliers/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/suppliers/' + id, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
           body: JSON.stringify({ name, companyType, mainProducts, contact, contactInfo })
@@ -1891,7 +1897,7 @@
       const invoiceStatus = document.getElementById('invoice-status-select').value;
 
       try {
-        const response = await fetch('/api/suppliers/' + supplierId + '/invoice-status', {
+        const response = await fetch(API_BASE_URL + '/api/suppliers/' + supplierId + '/invoice-status', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -1919,7 +1925,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/suppliers/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/suppliers/' + id, {
           method: 'DELETE',
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
@@ -1941,7 +1947,7 @@
       if (!user) return;
       
       try {
-        const response = await fetch('/api/suppliers/' + supplierId, {
+        const response = await fetch(API_BASE_URL + '/api/suppliers/' + supplierId, {
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
         const supplier = await response.json();
@@ -1996,7 +2002,7 @@
       }
       
       try {
-        const response = await fetch('/api/suppliers/' + supplierId + '/attachments', {
+        const response = await fetch(API_BASE_URL + '/api/suppliers/' + supplierId + '/attachments', {
           method: 'POST',
           headers: {
             'username': user.username,
@@ -2025,7 +2031,7 @@
       if (!user) return;
       
       try {
-        const response = await fetch('/api/suppliers/' + supplierId + '/attachments/' + attachmentId, {
+        const response = await fetch(API_BASE_URL + '/api/suppliers/' + supplierId + '/attachments/' + attachmentId, {
           method: 'DELETE',
           headers: {
             'username': user.username,
@@ -2066,7 +2072,7 @@
       const purchaseChannel = document.getElementById('create-product-purchasechannel').value;
       const features = document.getElementById('create-product-features').value;
       try {
-        const response = await fetch('/api/products', {
+        const response = await fetch(API_BASE_URL + '/api/products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
           body: JSON.stringify({ id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, purchasePrice, purchaseLink, purchaseChannel, features })
@@ -2088,7 +2094,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/products/' + id, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } });
+        const response = await fetch(API_BASE_URL + '/api/products/' + id, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } });
         const product = await response.json();
         const purchasePrice = product.purchasePrice || product.purchasePriceLess100 || 0;
         let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑产品</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品ID</label><input type="text" id="edit-product-id" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.id + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">英文名称</label><input type="text" id="edit-product-englishname" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.englishName + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">中文名称</label><input type="text" id="edit-product-chinesename" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.chineseName + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">销售价(≤100)</label><input type="number" id="edit-product-salespriceless100" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.salesPriceLess100 + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">销售价(>100)</label><input type="number" id="edit-product-salespricemore100" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.salesPriceMore100 + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商ID</label><input type="text" id="edit-product-supplierid" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + product.supplierId + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">采购价</label><input type="number" id="edit-product-purchaseprice" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + purchasePrice + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">采购链接</label><input type="text" id="edit-product-purchaselink" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (product.purchaseLink || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">采购渠道</label><input type="text" id="edit-product-purchasechannel" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (product.purchaseChannel || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品特性</label><textarea id="edit-product-features" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3">' + (product.features || '') + '</textarea></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="updateProduct()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
@@ -2112,7 +2118,7 @@
       const purchaseChannel = document.getElementById('edit-product-purchasechannel').value;
       const features = document.getElementById('edit-product-features').value;
       try {
-        const response = await fetch('/api/products/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/products/' + id, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
           body: JSON.stringify({ englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierId, purchasePrice, purchaseLink, purchaseChannel, features })
@@ -2135,7 +2141,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/products/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/products/' + id, {
           method: 'DELETE',
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
@@ -2157,7 +2163,7 @@
       if (!user) return;
       
       try {
-        const response = await fetch('/api/countries', {
+        const response = await fetch(API_BASE_URL + '/api/countries', {
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
         const countries = await response.json();
@@ -2187,7 +2193,7 @@
       }
       
       try {
-        const response = await fetch('/api/customers', {
+        const response = await fetch(API_BASE_URL + '/api/customers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
           body: JSON.stringify({ companyName, companyShortName, contact, country, website, companySize })
@@ -2210,8 +2216,8 @@
       if (!user) return;
       try {
         const [customerResponse, countriesResponse] = await Promise.all([
-          fetch('/api/customers/' + id, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } }),
-          fetch('/api/countries', { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } })
+          fetch(API_BASE_URL + '/api/customers/' + id, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } }),
+          fetch(API_BASE_URL + '/api/countries', { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } })
         ]);
         
         const customer = await customerResponse.json();
@@ -2237,7 +2243,7 @@
       const website = document.getElementById('edit-customer-website').value;
       const companySize = document.getElementById('edit-customer-companysize').value;
       try {
-        const response = await fetch('/api/customers/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/customers/' + id, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
           body: JSON.stringify({ companyName, companyShortName, contact, country, website, companySize })
@@ -2260,7 +2266,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/customers/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/customers/' + id, {
           method: 'DELETE',
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
@@ -2282,7 +2288,7 @@
       if (!user) return;
       
       try {
-        const response = await fetch('/api/products', {
+        const response = await fetch(API_BASE_URL + '/api/products', {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -2324,7 +2330,7 @@
       const quantity = parseInt(document.getElementById('create-inventory-quantity').value) || 0;
       const warehouse = document.getElementById('create-inventory-warehouse').value;
       try {
-        const response = await fetch('/api/inventory', {
+        const response = await fetch(API_BASE_URL + '/api/inventory', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
           body: JSON.stringify({ productId, quantity, warehouse })
@@ -2346,7 +2352,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/inventory/' + productId, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } });
+        const response = await fetch(API_BASE_URL + '/api/inventory/' + productId, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } });
         const inventory = await response.json();
         let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑库存</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品ID</label><input type="text" id="edit-inventory-productid" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + inventory.productId + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">库存数量</label><input type="number" id="edit-inventory-quantity" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + inventory.quantity + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">仓库</label><input type="text" id="edit-inventory-warehouse" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + inventory.warehouse + '"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="updateInventory()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
         document.body.insertAdjacentHTML('beforeend', modalHTML);
@@ -2362,7 +2368,7 @@
       const quantity = parseInt(document.getElementById('edit-inventory-quantity').value) || 0;
       const warehouse = document.getElementById('edit-inventory-warehouse').value;
       try {
-        const response = await fetch('/api/inventory/' + productId, {
+        const response = await fetch(API_BASE_URL + '/api/inventory/' + productId, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
           body: JSON.stringify({ quantity, warehouse })
@@ -2385,7 +2391,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/inventory/' + productId, {
+        const response = await fetch(API_BASE_URL + '/api/inventory/' + productId, {
           method: 'DELETE',
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
@@ -2428,7 +2434,7 @@
       if (!user) return;
       
       try {
-        const response = await fetch('/api/templates/' + type, {
+        const response = await fetch(API_BASE_URL + '/api/templates/' + type, {
           headers: {
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -2474,7 +2480,7 @@
         const formData = new FormData();
         formData.append('file', file);
         
-        const response = await fetch('/api/import/' + type, {
+        const response = await fetch(API_BASE_URL + '/api/import/' + type, {
           method: 'POST',
           headers: {
             'username': user.username,
@@ -2529,7 +2535,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/suppliers?search=' + encodeURIComponent(search), {
+        const response = await fetch(API_BASE_URL + '/api/suppliers?search=' + encodeURIComponent(search), {
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
         const data = await response.json();
@@ -2557,7 +2563,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/products?search=' + encodeURIComponent(search), {
+        const response = await fetch(API_BASE_URL + '/api/products?search=' + encodeURIComponent(search), {
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
         const data = await response.json();
@@ -2585,7 +2591,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/customers?search=' + encodeURIComponent(search), {
+        const response = await fetch(API_BASE_URL + '/api/customers?search=' + encodeURIComponent(search), {
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
         const data = await response.json();
@@ -2613,7 +2619,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/inventory?search=' + encodeURIComponent(search), {
+        const response = await fetch(API_BASE_URL + '/api/inventory?search=' + encodeURIComponent(search), {
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
         const data = await response.json();
@@ -2642,7 +2648,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/pi?search=' + encodeURIComponent(search), {
+        const response = await fetch(API_BASE_URL + '/api/pi?search=' + encodeURIComponent(search), {
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
         const data = await response.json();
@@ -2663,19 +2669,19 @@
 
       try {
         const [piResponse, customerResponse, productResponse] = await Promise.all([
-          fetch('/api/pi/' + id, {
+          fetch(API_BASE_URL + '/api/pi/' + id, {
             headers: {
               'username': user.username,
               'password': user.role === '业务员' ? 'sales123' : 'purchase123'
             }
           }),
-          fetch('/api/customers', {
+          fetch(API_BASE_URL + '/api/customers', {
             headers: {
               'username': user.username,
               'password': user.role === '业务员' ? 'sales123' : 'purchase123'
             }
           }),
-          fetch('/api/products', {
+          fetch(API_BASE_URL + '/api/products', {
             headers: {
               'username': user.username,
               'password': user.role === '业务员' ? 'sales123' : 'purchase123'
@@ -2786,7 +2792,7 @@
       }
 
       try {
-        const response = await fetch('/api/pi/' + piId, {
+        const response = await fetch(API_BASE_URL + '/api/pi/' + piId, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -2814,7 +2820,7 @@
       const user = checkLogin();
       if (!user) return;
       try {
-        const response = await fetch('/api/pi/' + id, {
+        const response = await fetch(API_BASE_URL + '/api/pi/' + id, {
           method: 'DELETE',
           headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' }
         });
