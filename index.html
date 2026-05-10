@@ -157,12 +157,26 @@
       let html = searchHTML + '<table class="min-w-full border border-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">供应商ID</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">供应商名称</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">公司类型</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">主营产品</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">联系人</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">联系方式</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">是否可开票</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">开票门槛</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">支付链接</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">附件</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">操作</th></tr></thead><tbody class="divide-y divide-gray-200">';
       
       for (const item of suppliers) {
-        const attachments = item.attachments ? item.attachments.split(',').filter(f => f.trim()) : [];
+        let attachments = [];
+        if (item.attachments) {
+          try {
+            attachments = JSON.parse(item.attachments);
+          } catch (e) {
+            // 如果解析失败，可能是旧格式（逗号分隔）
+            attachments = item.attachments.split(',').filter(f => f.trim()).map((f, idx) => ({
+              id: f,
+              originalName: f,
+              fileSize: 0,
+              uploadedAt: new Date().toISOString(),
+              storedName: f
+            }));
+          }
+        }
         let attachmentsHTML = '-';
         if (attachments.length > 0) {
           attachmentsHTML = '<div class="space-y-1">';
-          attachments.forEach(fileName => {
-            attachmentsHTML += '<a href="/api/suppliers/attachments/download/' + encodeURIComponent(fileName) + '" class="block text-xs text-green-600 hover:text-green-900" download>' + fileName + '</a>';
+          attachments.forEach(att => {
+            attachmentsHTML += '<a href="/api/suppliers/attachments/download/' + encodeURIComponent(att.storedName) + '" class="block text-xs text-green-600 hover:text-green-900" download>' + (att.originalName || att.storedName) + '</a>';
           });
           attachmentsHTML += '</div>';
         }
@@ -2199,7 +2213,15 @@
           try {
             attachments = JSON.parse(supplier.attachments);
           } catch (e) {
-            attachments = [];
+            // 如果解析失败，可能是旧格式（逗号分隔）
+            const oldFiles = supplier.attachments.split(',');
+            attachments = oldFiles.filter(f => f.trim()).map((f, idx) => ({
+              id: f,
+              originalName: f,
+              fileSize: 0,
+              uploadedAt: new Date().toISOString(),
+              storedName: f
+            }));
           }
         }
         
@@ -2208,7 +2230,18 @@
           attachmentsHTML = attachments.map(att => {
             const fileSizeKB = (att.fileSize / 1024).toFixed(2);
             const fileSizeDisplay = att.fileSize > 1024 * 1024 ? (att.fileSize / (1024 * 1024)).toFixed(2) + ' MB' : fileSizeKB + ' KB';
-            return '<div class="flex items-center justify-between bg-gray-50 p-3 rounded mb-2"><div class="flex-1"><div class="text-sm font-medium text-gray-900">' + att.originalName + '</div><div class="text-xs text-gray-500">大小: ' + fileSizeDisplay + ' | 上传时间: ' + new Date(att.uploadedAt).toLocaleString() + '</div></div><button onclick="deleteSupplierAttachment(\'' + supplierId + '\', \'' + att.id + '\')" class="ml-4 px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">删除</button></div>';
+            const ext = (att.originalName || '').split('.').pop().toLowerCase();
+            const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(ext);
+            const isPDF = ext === 'pdf';
+            
+            let previewHTML = '';
+            if (isImage) {
+              previewHTML = '<button onclick="previewSupplierAttachment(\'' + att.storedName + '\')" class="ml-2 px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">预览</button>';
+            } else if (isPDF) {
+              previewHTML = '<button onclick="previewSupplierAttachment(\'' + att.storedName + '\')" class="ml-2 px-2 py-1 bg-purple-500 text-white text-xs rounded hover:bg-purple-600">预览</button>';
+            }
+            
+            return '<div class="flex items-center justify-between bg-gray-50 p-3 rounded mb-2"><div class="flex-1"><div class="text-sm font-medium text-gray-900">' + att.originalName + '</div><div class="text-xs text-gray-500">大小: ' + fileSizeDisplay + ' | 上传时间: ' + new Date(att.uploadedAt).toLocaleString() + '</div></div><div class="flex items-center"><a href="/api/suppliers/attachments/download/' + encodeURIComponent(att.storedName) + '" class="ml-2 px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">下载</a>' + previewHTML + '<button onclick="deleteSupplierAttachment(\'' + supplierId + '\', \'' + att.id + '\')" class="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">删除</button></div></div>';
           }).join('');
         } else {
           attachmentsHTML = '<div class="text-center text-gray-500 py-4">暂无附件</div>';
@@ -2291,6 +2324,21 @@
         }
       } catch (error) {
         alert('删除失败：' + error.message);
+      }
+    }
+
+    function previewSupplierAttachment(fileName) {
+      const fileUrl = '/api/suppliers/attachments/download/' + encodeURIComponent(fileName);
+      const ext = fileName.split('.').pop().toLowerCase();
+      
+      if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) {
+        const modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-900 bg-opacity-90 overflow-y-auto h-full w-full flex items-center justify-center p-4"><div class="relative max-w-full max-h-full"><button onclick="closeModal()" class="absolute -top-12 right-0 text-white text-2xl hover:text-gray-300">&times;</button><img src="' + fileUrl + '" class="max-w-full max-h-[90vh] object-contain" /></div></div>';
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+      } else if (ext === 'pdf') {
+        const modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-900 bg-opacity-90 overflow-y-auto h-full w-full flex items-center justify-center p-4"><div class="relative max-w-full max-h-full w-full h-full"><button onclick="closeModal()" class="absolute top-4 right-4 text-white text-2xl hover:text-gray-300 z-50">&times;</button><iframe src="' + fileUrl + '" class="w-full h-[90vh] border-0" /></div></div>';
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+      } else {
+        alert('此文件类型不支持预览，请点击下载');
       }
     }
 

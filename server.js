@@ -461,22 +461,66 @@ app.post('/api/suppliers/:id/attachments', upload.array('files', 5), function(re
       return;
     }
     
-    const attachments = req.files.map(f => f.filename).join(',');
-    
-    db.run('UPDATE suppliers SET attachments = ? WHERE id = ?', 
-      [attachments, supplierId], 
-      function(err) {
-        if (err) {
-          console.error('Error updating supplier attachments:', err);
-          res.status(500).json({ success: false, error: err.message });
-        } else if (this.changes > 0) {
-          res.json({ success: true, filenames: req.files.map(f => f.filename) });
-        } else {
-          res.status(404).json({ success: false, error: '供应商不存在' });
+    // 获取现有附件
+    db.get('SELECT attachments FROM suppliers WHERE id = ?', [supplierId], function(err, supplier) {
+      if (err) {
+        console.error('Error fetching supplier:', err);
+        res.status(500).json({ success: false, error: err.message });
+        return;
+      }
+      
+      if (!supplier) {
+        res.status(404).json({ success: false, error: '供应商不存在' });
+        return;
+      }
+      
+      // 解析现有附件
+      let existingAttachments = [];
+      if (supplier.attachments) {
+        try {
+          existingAttachments = JSON.parse(supplier.attachments);
+        } catch (e) {
+          // 如果解析失败，可能是旧格式（逗号分隔），尝试转换
+          const oldFiles = supplier.attachments.split(',');
+          existingAttachments = oldFiles.filter(f => f.trim()).map((f, idx) => ({
+            id: f,
+            originalName: f,
+            fileSize: 0,
+            uploadedAt: new Date().toISOString(),
+            storedName: f
+          }));
         }
       }
-    );
+      
+      // 添加新附件
+      const newAttachments = req.files.map(f => ({
+        id: f.filename,
+        originalName: f.originalname,
+        fileSize: f.size,
+        uploadedAt: new Date().toISOString(),
+        storedName: f.filename
+      }));
+      
+      // 合并附件（最多5个）
+      const allAttachments = [...existingAttachments, ...newAttachments].slice(0, 5);
+      
+      // 保存到数据库
+      db.run('UPDATE suppliers SET attachments = ? WHERE id = ?', 
+        [JSON.stringify(allAttachments), supplierId], 
+        function(err) {
+          if (err) {
+            console.error('Error updating supplier attachments:', err);
+            res.status(500).json({ success: false, error: err.message });
+          } else if (this.changes > 0) {
+            res.json({ success: true, attachments: allAttachments });
+          } else {
+            res.status(404).json({ success: false, error: '供应商不存在' });
+          }
+        }
+      );
+    });
   } catch (err) {
+    console.error('Error uploading attachments:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -513,11 +557,40 @@ app.delete('/api/suppliers/:id/attachments/:attachmentId', function(req, res) {
     } else if (!supplier) {
       res.status(404).json({ success: false, error: '供应商不存在' });
     } else {
-      const attachments = supplier.attachments ? supplier.attachments.split(',') : [];
-      const newAttachments = attachments.filter(f => f !== attachmentId).join(',');
+      // 解析附件
+      let attachments = [];
+      if (supplier.attachments) {
+        try {
+          attachments = JSON.parse(supplier.attachments);
+        } catch (e) {
+          // 如果解析失败，可能是旧格式
+          const oldFiles = supplier.attachments.split(',');
+          attachments = oldFiles.filter(f => f.trim()).map((f, idx) => ({
+            id: f,
+            originalName: f,
+            fileSize: 0,
+            uploadedAt: new Date().toISOString(),
+            storedName: f
+          }));
+        }
+      }
+      
+      // 删除附件
+      const newAttachments = attachments.filter(att => att.id !== attachmentId);
+      
+      // 删除磁盘上的文件
+      const toDelete = attachments.find(att => att.id === attachmentId);
+      if (toDelete && toDelete.storedName) {
+        const filePath = path.join(__dirname, 'uploads', toDelete.storedName);
+        fs.unlink(filePath, (err) => {
+          if (err) {
+            console.error('Error deleting file:', err);
+          }
+        });
+      }
       
       db.run('UPDATE suppliers SET attachments = ? WHERE id = ?', 
-        [newAttachments, supplierId], 
+        [JSON.stringify(newAttachments), supplierId], 
         function(err) {
           if (err) {
             console.error('Error updating supplier attachments:', err);
