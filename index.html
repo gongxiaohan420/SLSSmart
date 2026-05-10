@@ -154,10 +154,19 @@
       const tableContainer = document.getElementById('table-container');
       let searchHTML = '<div class="mb-4 flex items-center"><input type="text" id="supplier-search" placeholder="搜索..." class="px-3 py-2 border border-gray-300 rounded-md mr-2 w-64"><button onclick="searchSuppliers()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">搜索</button><button onclick="clearSupplierSearch()" class="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded ml-2">清空</button></div>';
       
-      let html = searchHTML + '<table class="min-w-full border border-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">供应商ID</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">供应商名称</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">公司类型</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">主营产品</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">联系人</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">联系方式</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">操作</th></tr></thead><tbody class="divide-y divide-gray-200">';
+      let html = searchHTML + '<table class="min-w-full border border-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">供应商ID</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">供应商名称</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">公司类型</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">主营产品</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">联系人</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">联系方式</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">是否可开票</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">开票门槛</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">支付链接</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">附件</th><th class="px-6 py-2 text-left text-xs font-medium text-gray-500">操作</th></tr></thead><tbody class="divide-y divide-gray-200">';
       
       for (const item of suppliers) {
-        html += '<tr><td class="px-6 py-3 text-sm text-gray-900">' + item.id + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.name + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.companyType + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.mainProducts + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.contact + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.contactInfo + '</td><td class="px-6 py-3 text-sm"><button onclick="editSupplier(\'' + item.id + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">编辑</button><button onclick="showSupplierAttachments(\'' + item.id + '\')" class="text-purple-600 hover:text-purple-900 mr-2 text-xs">附件</button><button onclick="deleteSupplier(\'' + item.id + '\')" class="text-red-600 hover:text-red-900 text-xs">删除</button></td></tr>';
+        const attachments = item.attachments ? item.attachments.split(',').filter(f => f.trim()) : [];
+        let attachmentsHTML = '-';
+        if (attachments.length > 0) {
+          attachmentsHTML = '<div class="space-y-1">';
+          attachments.forEach(fileName => {
+            attachmentsHTML += '<a href="/api/suppliers/attachments/download/' + encodeURIComponent(fileName) + '" class="block text-xs text-green-600 hover:text-green-900" download>' + fileName + '</a>';
+          });
+          attachmentsHTML += '</div>';
+        }
+        html += '<tr><td class="px-6 py-3 text-sm text-gray-900">' + item.id + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.name + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.companyType + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.mainProducts + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.contact + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.contactInfo + '</td><td class="px-6 py-3 text-sm text-gray-900">' + (item.canInvoice || '-') + '</td><td class="px-6 py-3 text-sm text-gray-900">¥' + (item.invoiceThreshold || 0) + '</td><td class="px-6 py-3 text-sm text-gray-900">' + (item.paymentLink ? '<a href="' + item.paymentLink + '" target="_blank" class="text-blue-600 hover:text-blue-900 text-xs">查看</a>' : '-') + '</td><td class="px-6 py-3 text-sm">' + attachmentsHTML + '</td><td class="px-6 py-3 text-sm"><button onclick="editSupplier(\'' + item.id + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">编辑</button><button onclick="showSupplierAttachments(\'' + item.id + '\')" class="text-purple-600 hover:text-purple-900 mr-2 text-xs">上传附件</button><button onclick="deleteSupplier(\'' + item.id + '\')" class="text-red-600 hover:text-red-900 text-xs">删除</button></td></tr>';
       }
       
       html += '</tbody></table><div class="mt-4 flex justify-between items-center"><div class="text-sm text-gray-500">共 ' + suppliers.length + ' 条记录</div></div>';
@@ -557,14 +566,57 @@
 
     // 切换tab
     function switchTab(tabName) {
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-      document.querySelectorAll('[id^=tab-]').forEach(t => {
-        t.classList.remove('text-blue-600', 'border-blue-600');
-        t.classList.add('text-gray-500');
-      });
-      document.getElementById('content-' + tabName).classList.remove('hidden');
-      document.getElementById('tab-' + tabName).classList.add('text-blue-600', 'border-blue-600');
-      document.getElementById('tab-' + tabName).classList.remove('text-gray-500');
+      // 隐藏所有tab内容
+      var tabContents = document.querySelectorAll('.tab-content');
+      for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].style.display = 'none';
+      }
+      
+      // 重置所有tab按钮样式
+      var tabs = document.querySelectorAll('[id^="tab-"]');
+      for (var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+        tabs[i].classList.add('text-gray-500');
+      }
+      
+      // 显示选中的tab内容
+      var activeContent = document.getElementById('content-' + tabName);
+      if (activeContent) {
+        activeContent.style.display = 'block';
+        activeContent.style.visibility = 'visible';
+        activeContent.style.opacity = '1';
+        activeContent.style.position = 'relative';
+        activeContent.style.zIndex = '10';
+        activeContent.style.background = '#fff';
+        activeContent.style.color = '#000';
+        
+        // 调试信息
+        console.log('=== 切换到', tabName, '===');
+        console.log('内容:', activeContent.innerHTML.substring(0, 300));
+        console.log('offsetHeight:', activeContent.offsetHeight);
+        console.log('offsetWidth:', activeContent.offsetWidth);
+        console.log('offsetTop:', activeContent.offsetTop);
+        console.log('offsetLeft:', activeContent.offsetLeft);
+        
+        // 检查父元素
+        var parent = activeContent.parentElement;
+        console.log('父元素:', parent);
+        console.log('父元素display:', window.getComputedStyle(parent).display);
+        console.log('父元素offsetHeight:', parent.offsetHeight);
+        
+        // 检查祖先元素
+        var grandparent = parent.parentElement;
+        console.log('祖父元素:', grandparent);
+        console.log('祖父元素display:', window.getComputedStyle(grandparent).display);
+        console.log('祖父元素offsetHeight:', grandparent.offsetHeight);
+      }
+      
+      // 设置选中tab按钮样式
+      var activeTab = document.getElementById('tab-' + tabName);
+      if (activeTab) {
+        activeTab.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+        activeTab.classList.remove('text-gray-500');
+      }
     }
 
     // 清空搜索
@@ -575,6 +627,9 @@
 
     // 查看采购单详情
     async function viewPurchaseOrderDetail(id, activeTab = 'basic-info') {
+      // 先关闭之前的modal
+      closeModal();
+      
       const user = checkLogin();
       if (!user) return;
 
@@ -621,12 +676,7 @@
         const productsList = await productsResponse.json();
 
         // 获取设置的提醒
-        const remindersResponse = await fetch('/api/reminders/' + id, {
-          headers: {
-            'username': user.username,
-            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
-          }
-        });
+        const remindersResponse = await fetch('/api/reminders/' + id);
         let reminders = [];
         if (remindersResponse.ok) {
           try {
@@ -634,6 +684,7 @@
             if (!Array.isArray(reminders)) {
               reminders = [];
             }
+
           } catch (e) {
             console.error('解析提醒失败:', e);
             reminders = [];
@@ -644,12 +695,7 @@
         }
 
         // 获取提醒日志
-        const logsResponse = await fetch('/api/purchase-orders/' + id + '/reminder-logs', {
-          headers: {
-            'username': user.username,
-            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
-          }
-        });
+        const logsResponse = await fetch('/api/purchase-orders/' + id + '/reminder-logs');
         let reminderLogs = [];
         if (logsResponse.ok) {
           try {
@@ -657,6 +703,7 @@
             if (!Array.isArray(reminderLogs)) {
               reminderLogs = [];
             }
+
           } catch (e) {
             console.error('解析提醒日志失败:', e);
             reminderLogs = [];
@@ -711,40 +758,158 @@
         };
 
         // 构建待提醒列表（来自reminders表）
-        let pendingRemindersHTML = reminders.length > 0 ? reminders.map(reminder => {
-          return '<div class="border-b border-gray-200 py-4 px-4 hover:bg-gray-50 transition-colors"><div class="flex justify-between items-start mb-2"><div class="flex items-center space-x-2"><span class="px-3 py-1 text-xs font-medium rounded-full ' + (reminder.status === '待提醒' ? 'bg-yellow-100 text-yellow-800' : reminder.status === '已提醒' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800') + '">' + (reminder.status || '待提醒') + '</span><span class="text-sm text-gray-500">提醒时间:</span><span class="text-sm font-medium text-gray-900">' + new Date(reminder.reminderTime).toLocaleString() + '</span></div><div class="flex items-center space-x-2"><button onclick="editReminder(\'' + reminder.id + '\', \'' + purchaseOrder.id + '\')" class="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors">编辑</button><button onclick="deleteReminder(\'' + reminder.id + '\', \'' + purchaseOrder.id + '\')" class="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors">删除</button></div></div><div class="flex items-center space-x-4 text-sm text-gray-500 mb-2"><span>接收邮箱:</span><span class="text-gray-700">' + (reminder.email || '未设置') + '</span></div><div class="text-sm text-gray-700 pl-4 border-l-2 border-blue-200">' + (reminder.content || '无内容') + '</div></div>';
-        }).join('') : '<div class="text-center py-8 text-gray-500"><div class="text-gray-400 mb-2">暂无设置的提醒</div><button onclick="addReminder(\'' + purchaseOrder.id + '\')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">设置提醒</button></div>';
+        let pendingRemindersHTML = '';
+        if (reminders && reminders.length > 0) {
+          pendingRemindersHTML = reminders.map(function(reminder) {
+            var statusClass = reminder.status === '待提醒' ? 'bg-yellow-100 text-yellow-800' : 
+                             reminder.status === '已提醒' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+            var reminderTime = reminder.reminderTime ? new Date(reminder.reminderTime).toLocaleString() : '未设置';
+            return '<div class="border-b border-gray-200 py-4 px-4 hover:bg-gray-50 transition-colors">' +
+              '<div class="flex justify-between items-start mb-2">' +
+                '<div class="flex items-center space-x-2">' +
+                  '<span class="px-3 py-1 text-xs font-medium rounded-full ' + statusClass + '">' + (reminder.status || '待提醒') + '</span>' +
+                  '<span class="text-sm text-gray-500">提醒时间:</span>' +
+                  '<span class="text-sm font-medium text-gray-900">' + reminderTime + '</span>' +
+                '</div>' +
+                '<div class="flex items-center space-x-2">' +
+                  '<button onclick="editReminder(' + reminder.id + ', \'' + purchaseOrder.id + '\')" class="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors">编辑</button>' +
+                  '<button onclick="deleteReminder(' + reminder.id + ', \'' + purchaseOrder.id + '\')" class="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors">删除</button>' +
+                '</div>' +
+              '</div>' +
+              '<div class="flex items-center space-x-4 text-sm text-gray-500 mb-2">' +
+                '<span>接收邮箱:</span>' +
+                '<span class="text-gray-700">' + (reminder.email || '未设置') + '</span>' +
+              '</div>' +
+              '<div class="text-sm text-gray-700 pl-4 border-l-2 border-blue-200">' + (reminder.content || '无内容') + '</div>' +
+            '</div>';
+          }).join('');
+        } else {
+          pendingRemindersHTML = '<div class="text-center py-8 text-gray-500">' +
+            '<div class="text-gray-400 mb-2">暂无设置的提醒</div>' +
+            '<button onclick="addReminder(\'' + purchaseOrder.id + '\')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">设置提醒</button>' +
+          '</div>';
+        }
 
         // 构建提醒日志列表（来自reminderLogs表，已发送的）
-        let reminderLogsHTML = reminderLogs.length > 0 ? reminderLogs.map(log => {
-          return '<div class="border-b border-gray-200 py-4 px-4 hover:bg-gray-50 transition-colors"><div class="flex justify-between items-start mb-2"><div class="flex items-center space-x-2"><span class="px-3 py-1 text-xs font-medium rounded-full ' + (log.status === '成功' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800') + '">' + (log.status || '未知') + '</span><span class="text-sm text-gray-500">发送时间:</span><span class="text-sm font-medium text-gray-900">' + new Date(log.sentTime || log.created_at).toLocaleString() + '</span></div></div><div class="flex items-center space-x-4 text-sm text-gray-500 mb-2"><span>发送邮箱:</span><span class="text-gray-700">' + (log.email || '未设置') + '</span></div><div class="text-sm text-gray-700 pl-4 border-l-2 border-green-200">' + (log.content || '无内容') + '</div>' + (log.error ? '<div class="mt-2 text-sm text-red-600 pl-4 border-l-2 border-red-200">错误信息: ' + log.error + '</div>' : '') + '</div>';
-        }).join('') : '<div class="text-center py-8 text-gray-500">暂无发送记录</div>';
-
-        // 详情页HTML
+        let reminderLogsHTML = '';
+        if (reminderLogs && reminderLogs.length > 0) {
+          reminderLogsHTML = reminderLogs.map(function(log) {
+            var statusClass = (log.status === '成功' || log.status === '发送成功') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+            var displayStatus = log.status === '发送成功' ? '成功' : (log.status || '未知');
+            var sendTime = (log.sentTime || log.created_at) ? new Date(log.sentTime || log.created_at).toLocaleString() : '未知';
+            var errorHtml = log.errorMessage ? '<div class="mt-2 text-sm text-red-600 pl-4 border-l-2 border-red-200">错误信息: ' + log.errorMessage + '</div>' : '';
+            return '<div class="border-b border-gray-200 py-4 px-4 hover:bg-gray-50 transition-colors">' +
+              '<div class="flex justify-between items-start mb-2">' +
+                '<div class="flex items-center space-x-2">' +
+                  '<span class="px-3 py-1 text-xs font-medium rounded-full ' + statusClass + '">' + displayStatus + '</span>' +
+                  '<span class="text-sm text-gray-500">发送时间:</span>' +
+                  '<span class="text-sm font-medium text-gray-900">' + sendTime + '</span>' +
+                '</div>' +
+              '</div>' +
+              '<div class="flex items-center space-x-4 text-sm text-gray-500 mb-2">' +
+                '<span>发送邮箱:</span>' +
+                '<span class="text-gray-700">' + (log.email || '未设置') + '</span>' +
+              '</div>' +
+              '<div class="text-sm text-gray-700 pl-4 border-l-2 border-green-200">' + (log.content || '无内容') + '</div>' +
+              errorHtml +
+            '</div>';
+          }).join('');
+        } else {
+          reminderLogsHTML = '<div class="text-center py-8 text-gray-500">暂无发送记录</div>';
+        }
+        
+        // 详情页HTML - 拆分成多个部分便于维护
         let basicInfoTabClass = activeTab === 'basic-info' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700';
         let reminderInfoTabClass = activeTab === 'reminder-info' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700';
         let basicInfoContentClass = activeTab === 'basic-info' ? 'tab-content' : 'tab-content hidden';
         let reminderInfoContentClass = activeTab === 'reminder-info' ? 'tab-content' : 'tab-content hidden';
-        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">采购单详情 - ' + purchaseOrder.id + '</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="border-b border-gray-200"><nav class="flex"><button onclick="switchTab(\'basic-info\')" id="tab-basic-info" class="px-6 py-3 font-medium ' + basicInfoTabClass + '">基础信息</button><button onclick="switchTab(\'reminder-info\')" id="tab-reminder-info" class="px-6 py-3 font-medium ' + reminderInfoTabClass + '">提醒记录</button></nav></div><div class="p-6"><div id="content-basic-info" class="' + basicInfoContentClass + '"><div class="bg-blue-50 rounded-lg p-4 mb-6"><h4 class="font-medium text-gray-900 mb-3">采购单信息</h4><div class="grid grid-cols-4 gap-4"><div><span class="text-sm text-gray-500">采购单编号：</span><span class="text-sm font-medium">' + purchaseOrder.id + '</span></div><div><span class="text-sm text-gray-500">关联PI编号：</span><span class="text-sm font-medium">' + (purchaseOrder.piId || '无') + '</span></div><div><span class="text-sm text-gray-500">状态：</span><span class="text-sm font-medium">' + purchaseOrder.status + '</span></div><div><span class="text-sm text-gray-500">总金额：</span><span class="text-sm font-medium">¥' + (purchaseOrder.totalAmount || 0) + '</span></div><div><span class="text-sm text-gray-500">创建日期：</span><span class="text-sm font-medium">' + new Date(purchaseOrder.created_at).toLocaleString() + '</span></div><div><span class="text-sm text-gray-500">备注：</span><span class="text-sm font-medium">' + (purchaseOrder.purchaseNote || '无') + '</span></div></div></div><div class="bg-green-50 rounded-lg p-4 mb-6"><h4 class="font-medium text-gray-900 mb-3">供应商信息</h4><div class="grid grid-cols-4 gap-4 mb-4"><div><span class="text-sm text-gray-500">供应商ID：</span><span class="text-sm font-medium">' + (supplier.id || '') + '</span></div><div><span class="text-sm text-gray-500">供应商名称：</span><span class="text-sm font-medium">' + (supplier.name || '') + '</span></div><div><span class="text-sm text-gray-500">是否能开普通发票：</span><span class="text-sm font-medium">' + (supplier.canInvoice || '') + '</span></div><div><span class="text-sm text-gray-500">开票起点：</span><span class="text-sm font-medium">' + (supplier.invoiceThreshold || 0) + '</span></div><div><span class="text-sm text-gray-500">开票状态：</span><span class="text-sm font-medium">' + (supplier.invoiceStatus || '未设置') + '</span><button onclick="updateSupplierInvoiceStatus(\'' + supplier.id + '\', \'' + purchaseOrder.id + '\')" class="ml-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">更新</button></div><div><span class="text-sm text-gray-500">联系人：</span><span class="text-sm font-medium">' + (supplier.contact || '') + '</span></div><div><span class="text-sm text-gray-500">联系方式：</span><span class="text-sm font-medium">' + (supplier.contactInfo || '') + '</span></div><div><span class="text-sm text-gray-500">付款链接：</span><a href="' + (supplier.paymentLink || '#') + '" target="_blank" class="text-sm font-medium text-blue-600 hover:text-blue-800">' + (supplier.paymentLink || '无') + '</a></div></div><div class="border-t border-gray-200 pt-4 mt-4"><h5 class="font-medium text-gray-900 mb-2">快递信息</h5><div id="tracking-info-container">' + (purchaseOrder.trackingNumbers && purchaseOrder.trackingNumbers.length > 0 ? purchaseOrder.trackingNumbers.map((t, idx) => '<div class="flex items-center mb-2 space-x-2"><span class="text-sm text-gray-500">快递公司:</span><span class="text-sm font-medium">' + (t.company || '') + '</span><span class="text-sm text-gray-500 ml-2">快递单号:</span><input type="text" value="' + (t.number || t || '') + '" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded" readonly><button onclick="queryTrackingStatus(\'' + (t.company || '') + '\', \'' + (t.number || t || '') + '\')" class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">查询</button><button onclick="deleteTrackingNumber(\'' + purchaseOrder.id + '\', ' + idx + ')" class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">删除</button></div>').join('') : '<div class="text-sm text-gray-500">暂无快递信息</div>') + '</div></div></div><div class="bg-yellow-50 rounded-lg p-4 mb-6"><div class="flex justify-between items-center mb-3"><h4 class="font-medium text-gray-900">产品信息</h4><button onclick="saveProductInfo(\'' + purchaseOrder.id + '\')" class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600">保存</button></div><div class="bg-gray-50 rounded-lg overflow-hidden"><div class="grid grid-cols-10 gap-2 font-medium text-sm text-gray-700 p-3 border-b border-gray-200"><div>产品ID</div><div>产品中文名</div><div>产品英文名</div><div>购买数量</div><div>采购价格</div><div>采购链接</div><div>采购渠道</div><div>采购运费</div><div>查看历史</div><div>产品库存</div></div><div id="product-list-container">' + productListHTML + '</div></div><div class="mt-3 text-right font-bold">总金额: ¥' + (purchaseOrder.totalAmount || 0) + '</div></div><div id="content-reminder-info" class="' + reminderInfoContentClass + '"><div class="mb-6"><div class="flex justify-between items-center mb-4"><h4 class="font-medium text-gray-900">待提醒</h4><button onclick="addReminder(\'' + purchaseOrder.id + '\')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">设置提醒</button></div><div class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">' + pendingRemindersHTML + '</div></div><div><h4 class="font-medium text-gray-900 mb-4">发送记录</h4><div class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">' + reminderLogsHTML + '</div></div></div></div></div></div>';
+        
+        // 基础信息内容
+        let basicInfoHTML = '<div id="content-basic-info" class="' + basicInfoContentClass + '">' +
+          '<div class="bg-blue-50 rounded-lg p-4 mb-6">' +
+            '<h4 class="font-medium text-gray-900 mb-3">采购单信息</h4>' +
+            '<div class="grid grid-cols-4 gap-4">' +
+              '<div><span class="text-sm text-gray-500">采购单编号：</span><span class="text-sm font-medium">' + purchaseOrder.id + '</span></div>' +
+              '<div><span class="text-sm text-gray-500">关联PI编号：</span><span class="text-sm font-medium">' + (purchaseOrder.piId || '无') + '</span></div>' +
+              '<div><span class="text-sm text-gray-500">状态：</span><span class="text-sm font-medium">' + purchaseOrder.status + '</span></div>' +
+              '<div><span class="text-sm text-gray-500">总金额：</span><span class="text-sm font-medium">¥' + (purchaseOrder.totalAmount || 0) + '</span></div>' +
+              '<div><span class="text-sm text-gray-500">创建日期：</span><span class="text-sm font-medium">' + new Date(purchaseOrder.created_at).toLocaleString() + '</span></div>' +
+              '<div><span class="text-sm text-gray-500">备注：</span><span class="text-sm font-medium">' + (purchaseOrder.purchaseNote || '无') + '</span></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="bg-green-50 rounded-lg p-4 mb-6">' +
+            '<h4 class="font-medium text-gray-900 mb-3">供应商信息</h4>' +
+            '<div class="grid grid-cols-4 gap-4 mb-4">' +
+              '<div><span class="text-sm text-gray-500">供应商ID：</span><span class="text-sm font-medium">' + (supplier.id || '') + '</span></div>' +
+              '<div><span class="text-sm text-gray-500">供应商名称：</span><span class="text-sm font-medium">' + (supplier.name || '') + '</span></div>' +
+              '<div><span class="text-sm text-gray-500">是否能开普通发票：</span><span class="text-sm font-medium">' + (supplier.canInvoice || '') + '</span></div>' +
+              '<div><span class="text-sm text-gray-500">开票起点：</span><span class="text-sm font-medium">' + (supplier.invoiceThreshold || 0) + '</span></div>' +
+              '<div><span class="text-sm text-gray-500">开票状态：</span><span class="text-sm font-medium">' + (supplier.invoiceStatus || '未设置') + '</span><button onclick="updateSupplierInvoiceStatus(\'' + supplier.id + '\', \'' + purchaseOrder.id + '\')" class="ml-2 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">更新</button></div>' +
+              '<div><span class="text-sm text-gray-500">联系人：</span><span class="text-sm font-medium">' + (supplier.contact || '') + '</span></div>' +
+              '<div><span class="text-sm text-gray-500">联系方式：</span><span class="text-sm font-medium">' + (supplier.contactInfo || '') + '</span></div>' +
+              '<div><span class="text-sm text-gray-500">付款链接：</span><a href="' + (supplier.paymentLink || '#') + '" target="_blank" class="text-sm font-medium text-blue-600 hover:text-blue-800">' + (supplier.paymentLink || '无') + '</a></div>' +
+            '</div>' +
+            '<div class="border-t border-gray-200 pt-4 mt-4">' +
+              '<h5 class="font-medium text-gray-900 mb-2">快递信息</h5>' +
+              '<div id="tracking-info-container">' + (purchaseOrder.trackingNumbers && purchaseOrder.trackingNumbers.length > 0 ? purchaseOrder.trackingNumbers.map((t, idx) => '<div class="flex items-center mb-2 space-x-2"><span class="text-sm text-gray-500">快递公司:</span><span class="text-sm font-medium">' + (t.company || '') + '</span><span class="text-sm text-gray-500 ml-2">快递单号:</span><input type="text" value="' + (t.number || t || '') + '" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded" readonly><button onclick="queryTrackingStatus(\'' + (t.company || '') + '\', \'' + (t.number || t || '') + '\')" class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">查询</button><button onclick="deleteTrackingNumber(\'' + purchaseOrder.id + '\', ' + idx + ')" class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">删除</button></div>').join('') : '<div class="text-sm text-gray-500">暂无快递信息</div>') + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="bg-yellow-50 rounded-lg p-4 mb-6">' +
+            '<div class="flex justify-between items-center mb-3">' +
+              '<h4 class="font-medium text-gray-900">产品信息</h4>' +
+              '<button onclick="saveProductInfo(\'' + purchaseOrder.id + '\')" class="px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600">保存</button>' +
+            '</div>' +
+            '<div class="bg-gray-50 rounded-lg overflow-hidden">' +
+              '<div class="grid grid-cols-10 gap-2 font-medium text-sm text-gray-700 p-3 border-b border-gray-200">' +
+                '<div>产品ID</div><div>产品中文名</div><div>产品英文名</div><div>购买数量</div><div>采购价格</div><div>采购链接</div><div>采购渠道</div><div>采购运费</div><div>查看历史</div><div>产品库存</div>' +
+              '</div>' +
+              '<div id="product-list-container">' + productListHTML + '</div>' +
+            '</div>' +
+            '<div class="mt-3 text-right font-bold">总金额: ¥' + (purchaseOrder.totalAmount || 0) + '</div>' +
+          '</div>' +
+        '</div>';
+        
+        // 提醒记录内容
+        let reminderInfoHTML = '<div id="content-reminder-info" class="' + reminderInfoContentClass + '">' +
+          '<div class="mb-6">' +
+            '<div class="flex justify-between items-center mb-4">' +
+              '<h4 class="font-medium text-gray-900">待提醒</h4>' +
+              '<button onclick="addReminder(\'' + purchaseOrder.id + '\')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">设置提醒</button>' +
+            '</div>' +
+            '<div class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">' + pendingRemindersHTML + '</div>' +
+          '</div>' +
+          '<div>' +
+            '<h4 class="font-medium text-gray-900 mb-4">发送记录</h4>' +
+            '<div class="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">' + reminderLogsHTML + '</div>' +
+          '</div>' +
+        '</div>';
+        
+        // 完整的modal HTML
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">' +
+          '<div class="bg-white min-h-screen">' +
+            '<div class="bg-gray-800 text-white px-6 py-4">' +
+              '<div class="flex justify-between items-center">' +
+                '<h3 class="text-xl font-bold">采购单详情 - ' + purchaseOrder.id + '</h3>' +
+                '<button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="border-b border-gray-200">' +
+              '<nav class="flex">' +
+                '<button onclick="switchTab(\'basic-info\')" id="tab-basic-info" class="px-6 py-3 font-medium ' + basicInfoTabClass + '">基础信息</button>' +
+                '<button onclick="switchTab(\'reminder-info\')" id="tab-reminder-info" class="px-6 py-3 font-medium ' + reminderInfoTabClass + '">提醒记录</button>' +
+              '</nav>' +
+            '</div>' +
+            '<div class="p-6">' +
+              basicInfoHTML +
+              reminderInfoHTML +
+            '</div>' +
+          '</div>' +
+        '</div>';
 
         document.body.insertAdjacentHTML('beforeend', modalHTML);
       } catch (error) {
         alert('加载采购单详情失败：' + error.message);
       }
-    }
-
-    // 切换Tab（全局函数）
-    window.switchTab = function(tabName) {
-      document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.add('hidden');
-      });
-      document.querySelectorAll('[id^="tab-"]').forEach(tab => {
-        tab.classList.remove('text-blue-600', 'border-blue-600');
-        tab.classList.add('text-gray-500');
-      });
-      document.getElementById('content-' + tabName).classList.remove('hidden');
-      document.getElementById('tab-' + tabName).classList.add('text-blue-600', 'border-blue-600');
-      document.getElementById('tab-' + tabName).classList.remove('text-gray-500');
     }
 
     // 关闭弹窗
@@ -1880,7 +2045,7 @@
 
     // 供应商操作函数
     function createSupplier() {
-      let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增供应商</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商ID</label><input type="text" id="create-supplier-id" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商名称</label><input type="text" id="create-supplier-name" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司类型</label><input type="text" id="create-supplier-type" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">主营产品</label><input type="text" id="create-supplier-products" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="create-supplier-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系方式</label><input type="text" id="create-supplier-contactinfo" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveSupplier()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+      let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增供应商</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商ID</label><input type="text" id="create-supplier-id" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商名称</label><input type="text" id="create-supplier-name" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司类型</label><input type="text" id="create-supplier-type" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">主营产品</label><input type="text" id="create-supplier-products" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="create-supplier-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系方式</label><input type="text" id="create-supplier-contactinfo" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">是否可开票</label><select id="create-supplier-caninvoice" class="w-full px-3 py-2 border border-gray-300 rounded-md"><option value="">请选择</option><option value="是">是</option><option value="否">否</option></select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">开票门槛</label><input type="number" id="create-supplier-invoicethreshold" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="0"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">支付链接</label><input type="text" id="create-supplier-paymentlink" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveSupplier()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
       document.body.insertAdjacentHTML('beforeend', modalHTML);
     }
 
@@ -1893,11 +2058,14 @@
       const mainProducts = document.getElementById('create-supplier-products').value;
       const contact = document.getElementById('create-supplier-contact').value;
       const contactInfo = document.getElementById('create-supplier-contactinfo').value;
+      const canInvoice = document.getElementById('create-supplier-caninvoice').value;
+      const invoiceThreshold = document.getElementById('create-supplier-invoicethreshold').value;
+      const paymentLink = document.getElementById('create-supplier-paymentlink').value;
       try {
         const response = await fetch('/api/suppliers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
-          body: JSON.stringify({ id, name, companyType, mainProducts, contact, contactInfo })
+          body: JSON.stringify({ id, name, companyType, mainProducts, contact, contactInfo, canInvoice, invoiceThreshold, paymentLink })
         });
         const data = await response.json();
         if (response.ok) {
@@ -1918,7 +2086,7 @@
       try {
         const response = await fetch('/api/suppliers/' + id, { headers: { 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' } });
         const supplier = await response.json();
-        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑供应商</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商ID</label><input type="text" id="edit-supplier-id" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.id + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商名称</label><input type="text" id="edit-supplier-name" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.name + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司类型</label><input type="text" id="edit-supplier-type" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.companyType + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">主营产品</label><input type="text" id="edit-supplier-products" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.mainProducts + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="edit-supplier-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.contact + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系方式</label><input type="text" id="edit-supplier-contactinfo" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.contactInfo + '"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="updateSupplier()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑供应商</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商ID</label><input type="text" id="edit-supplier-id" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.id + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商名称</label><input type="text" id="edit-supplier-name" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.name + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司类型</label><input type="text" id="edit-supplier-type" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.companyType + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">主营产品</label><input type="text" id="edit-supplier-products" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.mainProducts + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="edit-supplier-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.contact + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系方式</label><input type="text" id="edit-supplier-contactinfo" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + supplier.contactInfo + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">是否可开票</label><select id="edit-supplier-caninvoice" class="w-full px-3 py-2 border border-gray-300 rounded-md"><option value="" ' + (supplier.canInvoice === '' ? 'selected' : '') + '>请选择</option><option value="是" ' + (supplier.canInvoice === '是' ? 'selected' : '') + '>是</option><option value="否" ' + (supplier.canInvoice === '否' ? 'selected' : '') + '>否</option></select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">开票门槛</label><input type="number" id="edit-supplier-invoicethreshold" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (supplier.invoiceThreshold || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">支付链接</label><input type="text" id="edit-supplier-paymentlink" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (supplier.paymentLink || '') + '"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="updateSupplier()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
         document.body.insertAdjacentHTML('beforeend', modalHTML);
       } catch (error) {
         alert('获取供应商信息失败：' + error.message);
@@ -1934,11 +2102,14 @@
       const mainProducts = document.getElementById('edit-supplier-products').value;
       const contact = document.getElementById('edit-supplier-contact').value;
       const contactInfo = document.getElementById('edit-supplier-contactinfo').value;
+      const canInvoice = document.getElementById('edit-supplier-caninvoice').value;
+      const invoiceThreshold = document.getElementById('edit-supplier-invoicethreshold').value;
+      const paymentLink = document.getElementById('edit-supplier-paymentlink').value;
       try {
         const response = await fetch('/api/suppliers/' + id, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
-          body: JSON.stringify({ name, companyType, mainProducts, contact, contactInfo })
+          body: JSON.stringify({ name, companyType, mainProducts, contact, contactInfo, canInvoice, invoiceThreshold, paymentLink })
         });
         const data = await response.json();
         if (response.ok) {
@@ -2769,7 +2940,7 @@
           return '<option value="' + c.id + '"' + selected + '>' + c.companyName + '</option>';
         }).join('');
 
-        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑销售报价单</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">客户</label><select id="edit-pi-customer" class="w-full px-3 py-2 border border-gray-300 rounded-md" disabled>' + customersHTML + '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="edit-pi-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3">' + (pi.note || '') + '</textarea></div><div class="mb-6"><h4 class="font-medium text-gray-900 mb-3">产品列表</h4><div id="edit-pi-product-list" data-products=\'' + JSON.stringify(products) + '\' data-pi-id=\'' + id + '\'></div><button onclick="addEditPIProductRow()" class="mt-3 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">添加产品</button></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveEditPI()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑销售报价单</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><input type="hidden" id="edit-pi-customer-id" value="' + (pi.customerId || '') + '"><input type="hidden" id="edit-pi-customer-name" value="' + (pi.customerName || '') + '"><input type="hidden" id="edit-pi-status" value="' + (pi.status || '') + '"><input type="hidden" id="edit-pi-total-amount" value="' + (pi.totalAmount || '0') + '"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">客户</label><select id="edit-pi-customer" class="w-full px-3 py-2 border border-gray-300 rounded-md" disabled>' + customersHTML + '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">状态</label><input type="text" id="edit-pi-status-display" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (pi.status || '') + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">总金额</label><input type="text" id="edit-pi-total-display" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="¥' + (pi.totalAmount || '0') + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="edit-pi-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3">' + (pi.note || '') + '</textarea></div><div class="mb-6"><h4 class="font-medium text-gray-900 mb-3">产品列表</h4><div id="edit-pi-product-list" data-products=\'' + JSON.stringify(products) + '\' data-pi-id=\'' + id + '\'></div><button onclick="addEditPIProductRow()" class="mt-3 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">添加产品</button></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveEditPI()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
 
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         
@@ -2810,12 +2981,21 @@
       const container = document.getElementById('edit-pi-product-list');
       const row = container.querySelector('[data-index="' + index + '"]');
       const productIdInput = row.querySelector('.pi-product-id');
+      const unitPriceInput = row.querySelector('input[type="number"]:nth-child(2)');
       
       const selectedOption = selectElement.options[selectElement.selectedIndex];
       if (selectedOption.value) {
         productIdInput.value = selectedOption.value;
+        
+        // 从产品列表中获取价格
+        const products = JSON.parse(container.dataset.products || '[]');
+        const selectedProduct = products.find(p => p.id === selectedOption.value);
+        if (selectedProduct && selectedProduct.salesPrice) {
+          unitPriceInput.value = selectedProduct.salesPrice;
+        }
       } else {
         productIdInput.value = '';
+        unitPriceInput.value = 0;
       }
     }
     
@@ -2836,10 +3016,14 @@
       if (!user) return;
 
       const piId = document.getElementById('edit-pi-product-list').dataset.piId;
+      const customerId = document.getElementById('edit-pi-customer-id').value;
+      const customerName = document.getElementById('edit-pi-customer-name').value;
+      const status = document.getElementById('edit-pi-status').value;
       const note = document.getElementById('edit-pi-note').value;
 
       const productRows = document.querySelectorAll('#edit-pi-product-list > div');
       const products = [];
+      let totalAmount = 0;
 
       productRows.forEach(row => {
         const select = row.querySelector('.pi-product-select');
@@ -2851,13 +3035,17 @@
         const selectedOption = select.options[select.selectedIndex];
         const productName = selectedOption ? selectedOption.textContent : '';
         
+        const quantity = parseInt(quantityInput.value) || 1;
+        const unitPrice = parseFloat(unitPriceInput.value) || 0;
+        
         const product = {
           productId: productIdInput.value,
           productName: productName,
-          quantity: parseInt(quantityInput.value) || 1,
-          unitPrice: parseFloat(unitPriceInput.value) || 0
+          quantity: quantity,
+          unitPrice: unitPrice
         };
         products.push(product);
+        totalAmount += quantity * unitPrice;
       });
 
       // 验证
@@ -2874,7 +3062,7 @@
             'username': user.username,
             'password': user.role === '业务员' ? 'sales123' : 'purchase123'
           },
-          body: JSON.stringify({ products, note })
+          body: JSON.stringify({ customerId, customerName, products, totalAmount, note, status })
         });
 
         if (response.ok) {
