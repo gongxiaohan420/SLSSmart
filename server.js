@@ -9,6 +9,26 @@ const app = express();
 // multer配置用于文件上传
 const upload = multer({ dest: path.join(__dirname, 'uploads') });
 
+// 修复文件名编码问题
+function fixFileNameEncoding(fileName) {
+  if (!fileName) return fileName;
+  
+  try {
+    // 检测是否为ISO-8859-1编码的乱码
+    const isGarbled = /[\x80-\xFF]/.test(fileName) && !/[\u4e00-\u9fa5]/.test(fileName);
+    
+    if (isGarbled) {
+      // 将ISO-8859-1转换为UTF-8
+      return Buffer.from(fileName, 'latin1').toString('utf8');
+    }
+    
+    return fileName;
+  } catch (e) {
+    console.error('Error fixing file name encoding:', e);
+    return fileName;
+  }
+}
+
 // SQLite数据库连接
 const dbPath = path.join(__dirname, 'backend', 'database.db');
 const db = new sqlite3.Database(dbPath, (err) => {
@@ -88,6 +108,33 @@ const db = new sqlite3.Database(dbPath, (err) => {
         console.log('数据库迁移成功 - 已为products表添加purchaseChannel列');
       }
     });
+    
+    // 数据库迁移：为products表添加description列（如果不存在）
+    db.run("ALTER TABLE products ADD COLUMN description TEXT DEFAULT ''", (alterErr) => {
+      if (alterErr && !alterErr.message.includes('duplicate column name')) {
+        console.log('数据库迁移 - products表已包含description列，无需迁移');
+      } else if (!alterErr) {
+        console.log('数据库迁移成功 - 已为products表添加description列');
+      }
+    });
+    
+    // 数据库迁移：为products表添加communication列（如果不存在）
+    db.run("ALTER TABLE products ADD COLUMN communication TEXT DEFAULT ''", (alterErr) => {
+      if (alterErr && !alterErr.message.includes('duplicate column name')) {
+        console.log('数据库迁移 - products表已包含communication列，无需迁移');
+      } else if (!alterErr) {
+        console.log('数据库迁移成功 - 已为products表添加communication列');
+      }
+    });
+    
+    // 数据库迁移：为products表添加dimensions列（如果不存在）
+    db.run("ALTER TABLE products ADD COLUMN dimensions TEXT DEFAULT ''", (alterErr) => {
+      if (alterErr && !alterErr.message.includes('duplicate column name')) {
+        console.log('数据库迁移 - products表已包含dimensions列，无需迁移');
+      } else if (!alterErr) {
+        console.log('数据库迁移成功 - 已为products表添加dimensions列');
+      }
+    });
   }
 });
 
@@ -119,10 +166,45 @@ app.use(function(req, res, next) {
 
 // 国家代码映射
 const countryCodes = {
-  '中国': 'CN', '美国': 'US', '日本': 'JP', '韩国': 'KR', '英国': 'GB', 
-  '法国': 'FR', '德国': 'DE', '意大利': 'IT', '西班牙': 'ES', '加拿大': 'CA',
-  '澳大利亚': 'AU', '新西兰': 'NZ', '新加坡': 'SG', '马来西亚': 'MY', '泰国': 'TH',
-  '印度': 'IN', '俄罗斯': 'RU', '巴西': 'BR', '墨西哥': 'MX', '阿根廷': 'AR'
+  '阿富汗': 'AF', '阿尔巴尼亚': 'AL', '阿尔及利亚': 'DZ', '安道尔': 'AD', '安哥拉': 'AO',
+  '安提瓜和巴布达': 'AG', '阿根廷': 'AR', '亚美尼亚': 'AM', '澳大利亚': 'AU', '奥地利': 'AT',
+  '阿塞拜疆': 'AZ', '巴哈马': 'BS', '巴林': 'BH', '孟加拉国': 'BD', '巴巴多斯': 'BB',
+  '白俄罗斯': 'BY', '比利时': 'BE', '伯利兹': 'BZ', '贝宁': 'BJ', '不丹': 'BT',
+  '玻利维亚': 'BO', '波斯尼亚和黑塞哥维那': 'BA', '博茨瓦纳': 'BW', '巴西': 'BR', '文莱': 'BN',
+  '保加利亚': 'BG', '布基纳法索': 'BF', '布隆迪': 'BI', '柬埔寨': 'KH', '喀麦隆': 'CM',
+  '加拿大': 'CA', '佛得角': 'CV', '中非共和国': 'CF', '乍得': 'TD', '智利': 'CL',
+  '中国': 'CN', '哥伦比亚': 'CO', '科摩罗': 'KM', '刚果(布)': 'CG', '刚果(金)': 'CD',
+  '哥斯达黎加': 'CR', '科特迪瓦': 'CI', '克罗地亚': 'HR', '古巴': 'CU', '塞浦路斯': 'CY',
+  '捷克': 'CZ', '丹麦': 'DK', '吉布提': 'DJ', '多米尼克': 'DM', '多米尼加': 'DO',
+  '厄瓜多尔': 'EC', '埃及': 'EG', '萨尔瓦多': 'SV', '赤道几内亚': 'GQ', '厄立特里亚': 'ER',
+  '爱沙尼亚': 'EE', '埃塞俄比亚': 'ET', '斐济': 'FJ', '芬兰': 'FI', '法国': 'FR',
+  '加蓬': 'GA', '冈比亚': 'GM', '格鲁吉亚': 'GE', '德国': 'DE', '加纳': 'GH',
+  '希腊': 'GR', '格林纳达': 'GD', '危地马拉': 'GT', '几内亚': 'GN', '几内亚比绍': 'GW',
+  '圭亚那': 'GY', '海地': 'HT', '洪都拉斯': 'HN', '匈牙利': 'HU', '冰岛': 'IS',
+  '印度': 'IN', '印度尼西亚': 'ID', '伊朗': 'IR', '伊拉克': 'IQ', '爱尔兰': 'IE',
+  '以色列': 'IL', '意大利': 'IT', '牙买加': 'JM', '日本': 'JP', '约旦': 'JO',
+  '哈萨克斯坦': 'KZ', '肯尼亚': 'KE', '基里巴斯': 'KI', '朝鲜': 'KP', '韩国': 'KR',
+  '科威特': 'KW', '吉尔吉斯斯坦': 'KG', '老挝': 'LA', '拉脱维亚': 'LV', '黎巴嫩': 'LB',
+  '莱索托': 'LS', '利比里亚': 'LR', '利比亚': 'LY', '列支敦士登': 'LI', '立陶宛': 'LT',
+  '卢森堡': 'LU', '马达加斯加': 'MG', '马拉维': 'MW', '马来西亚': 'MY', '马尔代夫': 'MV',
+  '马里': 'ML', '马耳他': 'MT', '马绍尔群岛': 'MH', '毛里塔尼亚': 'MR', '毛里求斯': 'MU',
+  '墨西哥': 'MX', '密克罗尼西亚': 'FM', '摩尔多瓦': 'MD', '摩纳哥': 'MC', '蒙古': 'MN',
+  '黑山': 'ME', '摩洛哥': 'MA', '莫桑比克': 'MZ', '缅甸': 'MM', '纳米比亚': 'NA',
+  '瑙鲁': 'NR', '尼泊尔': 'NP', '荷兰': 'NL', '新西兰': 'NZ', '尼加拉瓜': 'NI',
+  '尼日尔': 'NE', '尼日利亚': 'NG', '挪威': 'NO', '阿曼': 'OM', '巴基斯坦': 'PK',
+  '帕劳': 'PW', '巴拿马': 'PA', '巴布亚新几内亚': 'PG', '巴拉圭': 'PY', '秘鲁': 'PE',
+  '菲律宾': 'PH', '波兰': 'PL', '葡萄牙': 'PT', '卡塔尔': 'QA', '罗马尼亚': 'RO',
+  '俄罗斯': 'RU', '卢旺达': 'RW', '圣基茨和尼维斯': 'KN', '圣卢西亚': 'LC', '圣文森特和格林纳丁斯': 'VC',
+  '萨摩亚': 'WS', '圣马力诺': 'SM', '圣多美和普林西比': 'ST', '沙特阿拉伯': 'SA', '塞内加尔': 'SN',
+  '塞尔维亚': 'RS', '塞舌尔': 'SC', '塞拉利昂': 'SL', '新加坡': 'SG', '斯洛伐克': 'SK',
+  '斯洛文尼亚': 'SI', '所罗门群岛': 'SB', '索马里': 'SO', '南非': 'ZA', '南苏丹': 'SS',
+  '西班牙': 'ES', '斯里兰卡': 'LK', '苏丹': 'SD', '苏里南': 'SR', '斯威士兰': 'SZ',
+  '瑞典': 'SE', '瑞士': 'CH', '叙利亚': 'SY', '塔吉克斯坦': 'TJ', '坦桑尼亚': 'TZ',
+  '泰国': 'TH', '东帝汶': 'TL', '多哥': 'TG', '汤加': 'TO', '特立尼达和多巴哥': 'TT',
+  '突尼斯': 'TN', '土耳其': 'TR', '土库曼斯坦': 'TM', '图瓦卢': 'TV', '乌干达': 'UG',
+  '乌克兰': 'UA', '阿联酋': 'AE', '英国': 'GB', '美国': 'US', '乌拉圭': 'UY',
+  '乌兹别克斯坦': 'UZ', '瓦努阿图': 'VU', '梵蒂冈': 'VA', '委内瑞拉': 'VE', '越南': 'VN',
+  '也门': 'YE', '赞比亚': 'ZM', '津巴布韦': 'ZW'
 };
 
 // 默认示例数据
@@ -160,7 +242,7 @@ const defaultData = {
   reminders: [],
   emailConfigs: [
     { id: 1, email: 'gxhan0420@163.com', authCode: 'RGhwVqeQbTxVXTeE', smtpServer: 'smtp.163.com', smtpPort: 465 },
-    { id: 2, email: 'reminder@example.com', authCode: 'your_auth_code_here', smtpServer: 'smtp.example.com', smtpPort: 465 }
+    { id: 2, email: 'karl@slsele.com', authCode: 'l1jTokUGWQ8AZHVB', smtpServer: 'smtp.exmail.qq.com', smtpPort: 465 }
   ],
   reminderLogs: []
 };
@@ -236,9 +318,9 @@ app.get('/health', function(req, res) {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), uptime: process.uptime() });
 });
 
-// 根路径 - 返回首页
+// 根路径 - 重定向到登录页
 app.get('/', function(req, res) {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.redirect('/login.html');
 });
 
 // 获取国家列表
@@ -251,80 +333,105 @@ app.get('/api/countries', function(req, res) {
 
 // 客户相关接口
 app.get('/api/customers', function(req, res) {
-  res.json(customers);
+  const search = req.query.search || '';
+  let query = `
+    SELECT c.*, COALESCE(SUM(p.totalAmount), 0) as totalPurchaseAmount 
+    FROM customers c 
+    LEFT JOIN pi p ON c.id = p.customerId 
+  `;
+  let params = [];
+  
+  if (search) {
+    query += ' WHERE c.companyName LIKE ? OR c.contact LIKE ? OR c.country LIKE ?';
+    params = [`%${search}%`, `%${search}%`, `%${search}%`];
+  }
+  
+  query += ' GROUP BY c.id';
+  
+  db.all(query, params, function(err, rows) {
+    if (err) {
+      console.error('Error fetching customers:', err);
+      res.status(500).json({ error: err.message });
+    } else {
+      res.json(rows || []);
+    }
+  });
 });
 
 app.get('/api/customers/:id', function(req, res) {
-  const customer = customers.find(function(c) { return c.id === req.params.id; });
-  if (customer) {
-    res.json(customer);
-  } else {
-    res.status(404).json({ error: '客户不存在' });
-  }
+  const query = `
+    SELECT c.*, COALESCE(SUM(p.totalAmount), 0) as totalPurchaseAmount 
+    FROM customers c 
+    LEFT JOIN pi p ON c.id = p.customerId 
+    WHERE c.id = ? 
+    GROUP BY c.id
+  `;
+  db.get(query, [req.params.id], function(err, customer) {
+    if (err) {
+      console.error('Error fetching customer:', err);
+      res.status(500).json({ error: err.message });
+    } else if (customer) {
+      res.json(customer);
+    } else {
+      res.status(404).json({ error: '客户不存在' });
+    }
+  });
 });
 
 app.post('/api/customers', function(req, res) {
-  try {
-    const companyName = req.body.companyName || '';
-    const companyShortName = req.body.companyShortName || '';
-    const contact = req.body.contact || '';
-    const country = req.body.country || '中国';
-    const countryCode = countryCodes[country] || 'CN';
-    const companySize = req.body.companySize || '';
-    const website = req.body.website || '';
-    
-    const countryCustomers = customers.filter(function(c) { return c.countryCode === countryCode; });
-    const nextNumber = countryCustomers.length + 1;
+  const companyName = req.body.companyName || '';
+  const companyShortName = req.body.companyShortName || '';
+  const contact = req.body.contact || '';
+  const country = req.body.country || '中国';
+  const countryCode = countryCodes[country] || 'CN';
+  const companySize = req.body.companySize || '';
+  const website = req.body.website || '';
+  const email = req.body.email || '';
+  const phone = req.body.phone || '';
+  const paymentMethod = req.body.paymentMethod || '';
+  const otherContact = req.body.otherContact || '';
+  const note = req.body.note || '';
+  const interestProducts = req.body.interestProducts || '';
+  const taxId = req.body.taxId || '';
+  const source = req.body.source || '';
+  
+  db.get('SELECT COUNT(*) as count FROM customers WHERE countryCode = ?', [countryCode], function(err, result) {
+    if (err) {
+      console.error('Error counting customers:', err);
+      res.status(500).json({ success: false, error: err.message });
+      return;
+    }
+    const nextNumber = (result.count || 0) + 1;
     const customerId = countryCode + String(nextNumber).padStart(4, '0');
     
-    const customer = {
-      id: customerId,
-      companyName: companyName,
-      companyShortName: companyShortName,
-      contact: contact,
-      country: country,
-      countryCode: countryCode,
-      companySize: companySize,
-      website: website,
-      created_at: new Date().toISOString()
-    };
-    
-    customers.push(customer);
-    autoSave();
-    res.json({ success: true, id: customerId });
-  } catch (err) {
-    res.json({ success: false, error: err.message });
-  }
+    db.run('INSERT INTO customers (id, companyName, companyShortName, contact, country, countryCode, companySize, website, email, phone, paymentMethod, otherContact, note, interestProducts, taxId, source, totalPurchaseAmount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [customerId, companyName, companyShortName, contact, country, countryCode, companySize, website, email, phone, paymentMethod, otherContact, note, interestProducts, taxId, source, 0, new Date().toISOString()],
+      function(err) {
+        if (err) {
+          console.error('Error inserting customer:', err);
+          res.status(500).json({ success: false, error: err.message });
+        } else {
+          res.json({ success: true, id: customerId });
+        }
+      }
+    );
+  });
 });
 
 app.put('/api/customers/:id', function(req, res) {
   const customerId = req.params.id;
+  const countryCode = countryCodes[req.body.country] || 'CN';
   
-  // 先检查内存中是否存在该客户
-  const customerIndex = customers.findIndex(function(c) { return c.id === customerId; });
-  if (customerIndex === -1) {
-    res.status(404).json({ success: false, error: '客户不存在' });
-    return;
-  }
-  
-  // 更新数据库
-  db.run('UPDATE customers SET companyName = ?, companyShortName = ?, contact = ?, country = ?, website = ?, companySize = ?, countryCode = ? WHERE id = ?', 
-    [req.body.companyName, req.body.companyShortName, req.body.contact, req.body.country, req.body.website, req.body.companySize, countryCodes[req.body.country] || 'CN', customerId], 
+  db.run('UPDATE customers SET companyName = ?, companyShortName = ?, contact = ?, country = ?, countryCode = ?, companySize = ?, website = ?, email = ?, phone = ?, paymentMethod = ?, otherContact = ?, note = ?, interestProducts = ?, taxId = ?, source = ? WHERE id = ?', 
+    [req.body.companyName, req.body.companyShortName, req.body.contact, req.body.country, countryCode, req.body.companySize, req.body.website, req.body.email || '', req.body.phone || '', req.body.paymentMethod || '', req.body.otherContact || '', req.body.note || '', req.body.interestProducts || '', req.body.taxId || '', req.body.source || '', customerId], 
     function(err) {
       if (err) {
         console.error('Error updating customer:', err);
         res.status(500).json({ success: false, error: err.message });
-      } else {
-        // 更新内存变量
-        customers[customerIndex].companyName = req.body.companyName;
-        customers[customerIndex].companyShortName = req.body.companyShortName;
-        customers[customerIndex].contact = req.body.contact;
-        customers[customerIndex].country = req.body.country;
-        customers[customerIndex].website = req.body.website;
-        customers[customerIndex].companySize = req.body.companySize;
-        customers[customerIndex].countryCode = countryCodes[req.body.country] || 'CN';
-        
+      } else if (this.changes > 0) {
         res.json({ success: true });
+      } else {
+        res.status(404).json({ success: false, error: '客户不存在' });
       }
     }
   );
@@ -358,7 +465,24 @@ app.get('/api/suppliers', function(req, res) {
       console.error('Error fetching suppliers:', err);
       res.status(500).json({ error: err.message });
     } else {
-      res.json(suppliers);
+      // 解析attachments字段为数组
+      const result = suppliers.map(function(supplier) {
+        let attachments = [];
+        if (supplier.attachments) {
+          try {
+            attachments = JSON.parse(supplier.attachments);
+          } catch (e) {
+            // 如果解析失败，可能是旧格式（逗号分隔）
+            const oldFiles = supplier.attachments.split(',');
+            attachments = oldFiles.filter(f => f.trim()).map(f => ({
+              originalName: f,
+              storedName: f
+            }));
+          }
+        }
+        return Object.assign({}, supplier, { attachments });
+      });
+      res.json(result);
     }
   });
 });
@@ -369,23 +493,75 @@ app.get('/api/suppliers/:id', function(req, res) {
       console.error('Error fetching supplier:', err);
       res.status(500).json({ error: err.message });
     } else if (supplier) {
-      res.json(supplier);
+      // 解析attachments字段为数组
+      let attachments = [];
+      if (supplier.attachments) {
+        try {
+          attachments = JSON.parse(supplier.attachments);
+        } catch (e) {
+          // 如果解析失败，可能是旧格式（逗号分隔）
+          const oldFiles = supplier.attachments.split(',');
+          attachments = oldFiles.filter(f => f.trim()).map(f => ({
+            originalName: f,
+            storedName: f
+          }));
+        }
+      }
+      res.json(Object.assign({}, supplier, { attachments }));
     } else {
       res.status(404).json({ error: '供应商不存在' });
     }
   });
 });
 
+function getPinyinInitials(text) {
+  const pinyinMap = {
+    '阿': 'A', '爱': 'A', '安': 'A', '艾': 'A', '奥': 'A',
+    '八': 'B', '白': 'B', '百': 'B', '北': 'B', '本': 'B', '博': 'B', '宝': 'B', '保': 'B', '贝': 'B',
+    '长': 'C', '常': 'C', '成': 'C', '创': 'C', '春': 'C', '重': 'C', '川': 'C', '慈': 'C',
+    '大': 'D', '达': 'D', '东': 'D', '都': 'D', '德': 'D', '点': 'D', '定': 'D', '多': 'D',
+    '恩': 'E', '尔': 'E', '二': 'E',
+    '发': 'F', '方': 'F', '飞': 'F', '丰': 'F', '福': 'F', '法': 'F', '凡': 'F', '范': 'F',
+    '高': 'G', '广': 'G', '国': 'G', '贵': 'G', '光': 'G', '冠': 'G', '管': 'G', '桂': 'G',
+    '海': 'H', '杭': 'H', '和': 'H', '恒': 'H', '宏': 'H', '华': 'H', '惠': 'H', '豪': 'H', '合': 'H', '衡': 'H',
+    '吉': 'J', '佳': 'J', '建': 'J', '江': 'J', '金': 'J', '精': 'J', '京': 'J', '聚': 'J', '嘉': 'J', '杰': 'J', '捷': 'J', '锦': 'J',
+    '康': 'K', '科': 'K', '开': 'K', '凯': 'K', '昆': 'K', '快': 'K', '跨': 'K',
+    '来': 'L', '蓝': 'L', '乐': 'L', '力': 'L', '立': 'L', '联': 'L', '龙': 'L', '路': 'L', '雷': 'L', '理': 'L', '利': 'L', '良': 'L', '亮': 'L', '辽': 'L', '鲁': 'L', '陆': 'L', '旅': 'L',
+    '美': 'M', '民': 'M', '明': 'M', '马': 'M', '迈': 'M', '茂': 'M', '贸': 'M', '蒙': 'M', '闽': 'M', '名': 'M', '摩': 'M', '墨': 'M',
+    '南': 'N', '宁': 'N', '内': 'N', '能': 'N', '年': 'N', '纽': 'N', '诺': 'N',
+    '欧': 'O', '偶': 'O',
+    '普': 'P', '平': 'P', '鹏': 'P', '蓬': 'P', '浦': 'P', '葡': 'P', '普': 'P',
+    '奇': 'Q', '启': 'Q', '强': 'Q', '青': 'Q', '全': 'Q', '千': 'Q', '前': 'Q', '钱': 'Q', '乔': 'Q', '庆': 'Q', '秋': 'Q', '曲': 'Q', '权': 'Q',
+    '瑞': 'R', '润': 'R', '日': 'R', '荣': 'R', '融': 'R', '软': 'R',
+    '三': 'S', '山': 'S', '上': 'S', '深': 'S', '盛': 'S', '世': 'S', '顺': 'S', '思': 'S', '四': 'S', '松': 'S', '赛': 'S', '森': 'S', '沙': 'S', '厦': 'S', '汕': 'S', '韶': 'S', '邵': 'S', '申': 'S', '神': 'S', '沈': 'S', '什': 'S', '石': 'S', '时': 'S', '市': 'S', '书': 'S', '术': 'S', '树': 'S', '双': 'S', '水': 'S', '顺': 'S', '说': 'S', '司': 'S', '私': 'S', '思': 'S', '斯': 'S', '丝': 'S', '四': 'S', '寺': 'S', '松': 'S', '颂': 'S', '苏': 'S', '速': 'S', '宿': 'S', '肃': 'S', '隋': 'S', '随': 'S', '绥': 'S', '穗': 'S', '孙': 'S', '圳': 'Z',
+    '天': 'T', '通': 'T', '台': 'T', '泰': 'T', '太': 'T', '谭': 'T', '汤': 'T', '唐': 'T', '陶': 'T', '腾': 'T', '提': 'T', '体': 'T', '天': 'T', '田': 'T', '铁': 'T', '同': 'T', '童': 'T', '图': 'T', '土': 'T', '拓': 'T',
+    '万': 'W', '威': 'W', '维': 'W', '文': 'W', '五': 'W', '王': 'W', '旺': 'W', '网': 'W', '伟': 'W', '位': 'W', '味': 'W', '卫': 'W', '温': 'W', '闻': 'W', '问': 'W', '沃': 'W', '乌': 'W', '无': 'W', '吴': 'W', '武': 'W', '物': 'W', '务': 'W',
+    '西': 'X', '喜': 'X', '新': 'X', '信': 'X', '兴': 'X', '星': 'X', '夏': 'X', '仙': 'X', '先': 'X', '贤': 'X', '咸': 'X', '湘': 'X', '襄': 'X', '翔': 'X', '祥': 'X', '想': 'X', '向': 'X', '项': 'X', '萧': 'X', '晓': 'X', '小': 'X', '孝': 'X', '校': 'X', '协': 'X', '携': 'X', '谢': 'X', '心': 'X', '辛': 'X', '欣': 'X', '信': 'X', '兴': 'X', '行': 'X', '星': 'X', '性': 'X', '熊': 'X', '雄': 'X', '休': 'X', '修': 'X', '秀': 'X', '徐': 'X', '许': 'X', '宣': 'X', '玄': 'X', '选': 'X', '学': 'X', '雪': 'X', '寻': 'X', '巡': 'X', '迅': 'X', '逊': 'X',
+    '雅': 'Y', '亚': 'Y', '阳': 'Y', '一': 'Y', '益': 'Y', '永': 'Y', '优': 'Y', '宇': 'Y', '元': 'Y', '远': 'Y', '云': 'Y', '延': 'Y', '言': 'Y', '严': 'Y', '研': 'Y', '盐': 'Y', '炎': 'Y', '沿': 'Y', '演': 'Y', '验': 'Y', '雁': 'Y', '燕': 'Y', '央': 'Y', '扬': 'Y', '羊': 'Y', '阳': 'Y', '洋': 'Y', '腰': 'Y', '瑶': 'Y', '药': 'Y', '叶': 'Y', '业': 'Y', '夜': 'Y', '一': 'Y', '伊': 'Y', '衣': 'Y', '医': 'Y', '依': 'Y', '仪': 'Y', '宜': 'Y', '怡': 'Y', '移': 'Y', '遗': 'Y', '乙': 'Y', '已': 'Y', '以': 'Y', '艺': 'Y', '易': 'Y', '邑': 'Y', '益': 'Y', '逸': 'Y', '意': 'Y', '毅': 'Y', '忆': 'Y', '亿': 'Y', '义': 'Y', '议': 'Y', '亦': 'Y', '异': 'Y', '艺': 'Y', '译': 'Y', '驿': 'Y', '谊': 'Y', '逸': 'Y', '翼': 'Y', '因': 'Y', '阴': 'Y', '音': 'Y', '银': 'Y', '引': 'Y', '饮': 'Y', '印': 'Y', '英': 'Y', '樱': 'Y', '鹰': 'Y', '应': 'Y', '缨': 'Y', '影': 'Y', '映': 'Y', '硬': 'Y', '拥': 'Y', '永': 'Y', '勇': 'Y', '用': 'Y', '优': 'Y', '忧': 'Y', '悠': 'Y', '尤': 'Y', '由': 'Y', '犹': 'Y', '油': 'Y', '游': 'Y', '友': 'Y', '有': 'Y', '右': 'Y', '佑': 'Y', '诱': 'Y', '于': 'Y', '余': 'Y', '鱼': 'Y', '娱': 'Y', '渔': 'Y', '雨': 'Y', '语': 'Y', '玉': 'Y', '域': 'Y', '育': 'Y', '郁': 'Y', '遇': 'Y', '御': 'Y', '愈': 'Y', '欲': 'Y', '裕': 'Y', '预': 'Y', '元': 'Y', '园': 'Y', '原': 'Y', '圆': 'Y', '援': 'Y', '源': 'Y', '远': 'Y', '愿': 'Y', '怨': 'Y', '院': 'Y', '约': 'Y', '越': 'Y', '跃': 'Y', '粤': 'Y', '云': 'Y', '运': 'Y', '韵': 'Y', '允': 'Y', '孕': 'Y', '在': 'Z', '再': 'Z', '载': 'Z', '宰': 'Z', '灾': 'Z', '栽': 'Z', '哉': 'Z', '宰': 'Z', '咱': 'Z', '暂': 'Z', '赞': 'Z', '攒': 'Z', '葬': 'Z', '糟': 'Z', '早': 'Z', '枣': 'Z', '澡': 'Z', '藻': 'Z', '灶': 'Z', '造': 'Z', '噪': 'Z', '燥': 'Z', '责': 'Z', '择': 'Z', '则': 'Z', '泽': 'Z', '贼': 'Z', '怎': 'Z', '曾': 'Z', '增': 'Z', '憎': 'Z', '赠': 'Z', '扎': 'Z', '渣': 'Z', '乍': 'Z', '诈': 'Z', '摘': 'Z', '宅': 'Z', '窄': 'Z', '债': 'Z', '占': 'Z', '战': 'Z', '栈': 'Z', '张': 'Z', '章': 'Z', '樟': 'Z', '彰': 'Z', '漳': 'Z', '掌': 'Z', '涨': 'Z', '账': 'Z', '仗': 'Z', '杖': 'Z', '障': 'Z', '招': 'Z', '昭': 'Z', '找': 'Z', '沼': 'Z', '赵': 'Z', '照': 'Z', '罩': 'Z', '肇': 'Z', '遮': 'Z', '折': 'Z', '哲': 'Z', '辄': 'Z', '蛰': 'Z', '者': 'Z', '这': 'Z', '浙': 'Z', '珍': 'Z', '真': 'Z', '甄': 'Z', '臻': 'Z', '针': 'Z', '枕': 'Z', '诊': 'Z', '震': 'Z', '振': 'Z', '镇': 'Z', '争': 'Z', '征': 'Z', '整': 'Z', '正': 'Z', '证': 'Z', '郑': 'Z', '支': 'Z', '知': 'Z', '之': 'Z', '芝': 'Z', '枝': 'Z', '织': 'Z', '职': 'Z', '直': 'Z', '植': 'Z', '值': 'Z', '执': 'Z', '侄': 'Z', '指': 'Z', '止': 'Z', '只': 'Z', '旨': 'Z', '纸': 'Z', '志': 'Z', '制': 'Z', '治': 'Z', '致': 'Z', '智': 'Z', '中': 'Z', '忠': 'Z', '钟': 'Z', '终': 'Z', '种': 'Z', '重': 'Z', '仲': 'Z', '众': 'Z', '舟': 'Z', '周': 'Z', '州': 'Z', '洲': 'Z', '咒': 'Z', '宙': 'Z', '昼': 'Z', '珠': 'Z', '株': 'Z', '蛛': 'Z', '朱': 'Z', '诸': 'Z', '猪': 'Z', '竹': 'Z', '烛': 'Z', '逐': 'Z', '主': 'Z', '助': 'Z', '住': 'Z', '注': 'Z', '祝': 'Z', '著': 'Z', '筑': 'Z', '铸': 'Z', '抓': 'Z', '爪': 'Z', '专': 'Z', '砖': 'Z', '转': 'Z', '撰': 'Z', '赚': 'Z', '篆': 'Z', '庄': 'Z', '装': 'Z', '壮': 'Z', '状': 'Z', '撞': 'Z', '追': 'Z', '椎': 'Z', '锥': 'Z', '坠': 'Z', '缀': 'Z', '准': 'Z', '卓': 'Z', '桌': 'Z', '琢': 'Z', '灼': 'Z', '酌': 'Z', '着': 'Z', '浊': 'Z', '兹': 'Z', '资': 'Z', '姿': 'Z', '滋': 'Z', '子': 'Z', '紫': 'Z', '字': 'Z', '自': 'Z', '仔': 'Z', '走': 'Z', '奏': 'Z', '租': 'Z', '足': 'Z', '族': 'Z', '祖': 'Z', '阻': 'Z', '组': 'Z', '钻': 'Z', '纂': 'Z', '醉': 'Z', '最': 'Z', '罪': 'Z', '尊': 'Z', '遵': 'Z', '昨': 'Z', '左': 'Z', '佐': 'Z', '作': 'Z', '坐': 'Z', '座': 'Z', '做': 'Z'
+  };
+  
+  let initials = '';
+  for (let i = 0; i < Math.min(text.length, 2); i++) {
+    const char = text[i];
+    initials += pinyinMap[char] || 'X';
+  }
+  return initials;
+}
+
 app.post('/api/suppliers', function(req, res) {
+  const name = req.body.name || '';
+  const initials = getPinyinInitials(name);
+  
   db.get('SELECT COUNT(*) as count FROM suppliers', function(err, result) {
     if (err) {
       console.error('Error counting suppliers:', err);
       res.status(500).json({ success: false, error: err.message });
       return;
     }
-    const id = 'SUP' + String((result.count || 0) + 1).padStart(3, '0');
-    db.run('INSERT INTO suppliers (id, name, contact, contactInfo, paymentLink, canInvoice, invoiceThreshold, invoiceStatus, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-      [id, req.body.name, req.body.contact, req.body.contactInfo, req.body.paymentLink, req.body.canInvoice, req.body.invoiceThreshold, '未开票', new Date().toISOString()], 
+    const serialNumber = String((result.count || 0) + 1).padStart(4, '0');
+    const id = initials + serialNumber;
+    db.run('INSERT INTO suppliers (id, name, contact, contactInfo, paymentLink, canInvoice, invoiceThreshold, invoiceStatus, contactPerson, website, invoiceTax, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+      [id, req.body.name, req.body.contact, req.body.contactInfo, req.body.paymentLink, req.body.canInvoice, req.body.invoiceThreshold, '未开票', req.body.contactPerson || '', req.body.website || '', req.body.invoiceTax || '', new Date().toISOString()], 
       function(err) {
         if (err) {
           console.error('Error inserting supplier:', err);
@@ -399,8 +575,8 @@ app.post('/api/suppliers', function(req, res) {
 });
 
 app.put('/api/suppliers/:id', function(req, res) {
-  db.run('UPDATE suppliers SET name = ?, companyType = ?, mainProducts = ?, contact = ?, contactInfo = ?, canInvoice = ?, invoiceThreshold = ?, paymentLink = ?, note = ?, attachments = ? WHERE id = ?', 
-    [req.body.name, req.body.companyType, req.body.mainProducts, req.body.contact, req.body.contactInfo, req.body.canInvoice, req.body.invoiceThreshold, req.body.paymentLink, req.body.note, req.body.attachments, req.params.id], 
+  db.run('UPDATE suppliers SET name = ?, companyType = ?, mainProducts = ?, contact = ?, contactInfo = ?, canInvoice = ?, invoiceThreshold = ?, paymentLink = ?, note = ?, attachments = ?, contactPerson = ?, website = ?, invoiceTax = ? WHERE id = ?', 
+    [req.body.name, req.body.companyType, req.body.mainProducts, req.body.contact, req.body.contactInfo, req.body.canInvoice, req.body.invoiceThreshold, req.body.paymentLink, req.body.note, req.body.attachments, req.body.contactPerson || '', req.body.website || '', req.body.invoiceTax || '', req.params.id], 
     function(err) {
       if (err) {
         console.error('Error updating supplier:', err);
@@ -416,20 +592,26 @@ app.put('/api/suppliers/:id', function(req, res) {
 
 app.delete('/api/suppliers/:id', function(req, res) {
   const supplierId = req.params.id;
-  const supplierIndex = suppliers.findIndex(function(s) { return s.id === supplierId; });
-  
-  if (supplierIndex === -1) {
-    res.status(404).json({ success: false, error: '供应商不存在' });
-    return;
-  }
-  
-  suppliers.splice(supplierIndex, 1);
   
   db.run('DELETE FROM suppliers WHERE id = ?', [supplierId], function(err) {
     if (err) {
       console.error('Error deleting supplier from DB:', err);
+      res.status(500).json({ success: false, error: '删除失败：' + err.message });
+      return;
     }
-    saveData();
+    
+    if (this.changes === 0) {
+      res.status(404).json({ success: false, error: '供应商不存在' });
+      return;
+    }
+    
+    // 更新内存数组
+    const supplierIndex = suppliers.findIndex(function(s) { return s.id === supplierId; });
+    if (supplierIndex !== -1) {
+      suppliers.splice(supplierIndex, 1);
+      saveData();
+    }
+    
     res.json({ success: true });
   });
 });
@@ -495,7 +677,7 @@ app.post('/api/suppliers/:id/attachments', upload.array('files', 5), function(re
       // 添加新附件
       const newAttachments = req.files.map(f => ({
         id: f.filename,
-        originalName: f.originalname,
+        originalName: fixFileNameEncoding(f.originalname),
         fileSize: f.size,
         uploadedAt: new Date().toISOString(),
         storedName: f.filename
@@ -528,6 +710,7 @@ app.post('/api/suppliers/:id/attachments', upload.array('files', 5), function(re
 // 供应商附件下载
 app.get('/api/suppliers/attachments/download/:fileName', function(req, res) {
   const fileName = decodeURIComponent(req.params.fileName);
+  const originalName = fixFileNameEncoding(decodeURIComponent(req.query.originalName || fileName));
   const filePath = path.join(__dirname, 'uploads', fileName);
   
   fs.exists(filePath, function(exists) {
@@ -536,7 +719,7 @@ app.get('/api/suppliers/attachments/download/:fileName', function(req, res) {
       return;
     }
     
-    res.download(filePath, fileName, function(err) {
+    res.download(filePath, originalName, function(err) {
       if (err) {
         console.error('Error downloading file:', err);
         res.status(500).json({ success: false, error: '下载失败' });
@@ -638,7 +821,7 @@ app.get('/api/templates/products', function(req, res) {
     const workbook = XLSX.utils.book_new();
     
     // 创建表头（包含完整字段）
-    const headers = ['产品ID', '英文名称', '中文名称', '销售价(≤100)', '销售价(>100)', '供应商', '采购价', '采购链接', '采购渠道'];
+    const headers = ['产品ID', '英文名称', '中文名称', '销售价(≤100)', '销售价(>100)', '供应商', '采购价', '采购链接', '采购渠道', '描述', '通信方式', '尺寸'];
     
     // 创建工作表
     const worksheet = XLSX.utils.aoa_to_sheet([headers]);
@@ -664,7 +847,7 @@ app.get('/api/templates/customers', function(req, res) {
     const XLSX = require('xlsx');
     
     const workbook = XLSX.utils.book_new();
-    const headers = ['公司名称', '公司简称', '联系人', '国家', '公司规模'];
+    const headers = ['公司名称', '公司简称', '联系人', '国家', '公司网址', '电子邮箱', '电话', '付款方式', '其他联系方式', '备注', '兴趣产品', '地址税号', '来源', '公司规模'];
     const worksheet = XLSX.utils.aoa_to_sheet([headers]);
     
     XLSX.utils.book_append_sheet(workbook, worksheet, '客户导入模板');
@@ -706,7 +889,7 @@ app.get('/api/templates/suppliers', function(req, res) {
     const XLSX = require('xlsx');
     
     const workbook = XLSX.utils.book_new();
-    const headers = ['供应商名称', '公司类型', '主营产品', '联系人', '联系方式', '是否可开票', '开票门槛', '支付链接'];
+    const headers = ['供应商名称', '供应商负责人', '联系方式', '是否能免费开普票', '开票起点及税点', '网站链接'];
     const worksheet = XLSX.utils.aoa_to_sheet([headers]);
     
     XLSX.utils.book_append_sheet(workbook, worksheet, '供应商导入模板');
@@ -752,6 +935,15 @@ app.post('/api/import/customers', upload.single('file'), function(req, res) {
       const contact = row['联系人'] || row['contact'] || '';
       const country = row['国家'] || row['country'] || '中国';
       const companySize = row['公司规模'] || row['companySize'] || '';
+      const website = row['公司网址'] || row['website'] || '';
+      const email = row['电子邮箱'] || row['email'] || '';
+      const phone = row['电话'] || row['phone'] || '';
+      const paymentMethod = row['付款方式'] || row['paymentMethod'] || '';
+      const otherContact = row['其他联系方式'] || row['otherContact'] || '';
+      const note = row['备注'] || row['note'] || '';
+      const interestProducts = row['兴趣产品'] || row['interestProducts'] || '';
+      const taxId = row['地址税号'] || row['taxId'] || '';
+      const source = row['来源'] || row['source'] || '';
       
       if (!companyName) {
         errors.push(`第${index + 2}行：公司名称不能为空`);
@@ -769,28 +961,21 @@ app.post('/api/import/customers', upload.single('file'), function(req, res) {
           completed++;
           checkComplete();
         } else if (existing) {
-          db.run('UPDATE customers SET companyShortName = ?, contact = ?, country = ?, companySize = ? WHERE id = ?',
-            [companyShortName, contact, country, companySize, existing.id],
+          db.run('UPDATE customers SET companyShortName = ?, contact = ?, country = ?, countryCode = ?, companySize = ?, website = ?, email = ?, phone = ?, paymentMethod = ?, otherContact = ?, note = ?, interestProducts = ?, taxId = ?, source = ? WHERE id = ?',
+            [companyShortName, contact, country, countryCode, companySize, website, email, phone, paymentMethod, otherContact, note, interestProducts, taxId, source, existing.id],
             function(err) {
               if (err) {
                 errors.push(`第${index + 2}行：更新失败: ${err.message}`);
                 failCount++;
               } else {
                 successCount++;
-                const idx = customers.findIndex(function(c) { return c.id === existing.id; });
-                if (idx !== -1) {
-                  customers[idx].companyShortName = companyShortName;
-                  customers[idx].contact = contact;
-                  customers[idx].country = country;
-                  customers[idx].companySize = companySize;
-                }
               }
               completed++;
               checkComplete();
             }
           );
         } else {
-          db.get('SELECT COUNT(*) as count FROM customers WHERE country = ?', [country], function(err, result) {
+          db.get('SELECT COUNT(*) as count FROM customers WHERE countryCode = ?', [countryCode], function(err, result) {
             if (err) {
               errors.push(`第${index + 2}行：获取客户数量失败: ${err.message}`);
               failCount++;
@@ -799,15 +984,14 @@ app.post('/api/import/customers', upload.single('file'), function(req, res) {
             } else {
               const nextNumber = (result.count || 0) + 1;
               const customerId = countryCode + String(nextNumber).padStart(4, '0');
-              db.run('INSERT INTO customers (id, companyName, companyShortName, contact, country, countryCode, companySize, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                [customerId, companyName, companyShortName, contact, country, countryCode, companySize, new Date().toISOString()],
+              db.run('INSERT INTO customers (id, companyName, companyShortName, contact, country, countryCode, companySize, website, email, phone, paymentMethod, otherContact, note, interestProducts, taxId, source, totalPurchaseAmount, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [customerId, companyName, companyShortName, contact, country, countryCode, companySize, website, email, phone, paymentMethod, otherContact, note, interestProducts, taxId, source, 0, new Date().toISOString()],
                 function(err) {
                   if (err) {
                     errors.push(`第${index + 2}行：插入失败: ${err.message}`);
                     failCount++;
                   } else {
                     successCount++;
-                    customers.push({ id: customerId, companyName, companyShortName, contact, country, countryCode, companySize, created_at: new Date().toISOString() });
                   }
                   completed++;
                   checkComplete();
@@ -971,6 +1155,9 @@ app.post('/api/import/products', upload.single('file'), function(req, res) {
       const purchasePrice = parseFloat(row['采购价'] || row['purchasePrice'] || 0);
       const purchaseLink = row['采购链接'] || row['purchaseLink'] || '';
       const purchaseChannel = row['采购渠道'] || row['purchaseChannel'] || '';
+      const description = row['描述'] || row['description'] || '';
+      const communication = row['通信方式'] || row['communication'] || '';
+      const dimensions = row['尺寸'] || row['dimensions'] || '';
       
       // 验证必填字段
       if (!chineseName && !englishName) {
@@ -996,8 +1183,8 @@ app.post('/api/import/products', upload.single('file'), function(req, res) {
         
         if (existing) {
           // 更新现有产品
-          db.run('UPDATE products SET englishName = ?, chineseName = ?, salesPriceLess100 = ?, salesPriceMore100 = ?, supplierName = ?, purchasePriceLess100 = ?, purchasePriceMore100 = ?, purchaseLink = ?, purchaseChannel = ? WHERE id = ?',
-            [englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierName, purchasePrice, purchasePrice, purchaseLink, purchaseChannel, existing.id],
+          db.run('UPDATE products SET englishName = ?, chineseName = ?, salesPriceLess100 = ?, salesPriceMore100 = ?, supplierName = ?, purchasePriceLess100 = ?, purchasePriceMore100 = ?, purchaseLink = ?, purchaseChannel = ?, description = ?, communication = ?, dimensions = ? WHERE id = ?',
+            [englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierName, purchasePrice, purchasePrice, purchaseLink, purchaseChannel, description, communication, dimensions, existing.id],
             function(err) {
               if (err) {
                 errors.push(`第${index + 2}行：更新失败: ${err.message}`);
@@ -1011,8 +1198,8 @@ app.post('/api/import/products', upload.single('file'), function(req, res) {
           );
         } else {
           // 插入新产品
-          db.run('INSERT INTO products (id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierName, purchasePriceLess100, purchasePriceMore100, purchaseLink, purchaseChannel, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierName, purchasePrice, purchasePrice, purchaseLink, purchaseChannel, new Date().toISOString()],
+          db.run('INSERT INTO products (id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierName, purchasePriceLess100, purchasePriceMore100, purchaseLink, purchaseChannel, description, communication, dimensions, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [id, englishName, chineseName, salesPriceLess100, salesPriceMore100, supplierName, purchasePrice, purchasePrice, purchaseLink, purchaseChannel, description, communication, dimensions, new Date().toISOString()],
             function(err) {
               if (err) {
                 errors.push(`第${index + 2}行：插入失败: ${err.message}`);
@@ -1052,8 +1239,8 @@ app.post('/api/products', function(req, res) {
       return;
     }
     const id = 'P' + String((result.count || 0) + 1).padStart(3, '0');
-    db.run('INSERT INTO products (id, chineseName, englishName, purchaseLink, purchaseChannel, created_at) VALUES (?, ?, ?, ?, ?, ?)', 
-      [id, req.body.chineseName, req.body.englishName, req.body.purchaseLink, req.body.purchaseChannel, new Date().toISOString()], 
+    db.run('INSERT INTO products (id, chineseName, englishName, purchaseLink, purchaseChannel, description, communication, dimensions, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+      [id, req.body.chineseName, req.body.englishName, req.body.purchaseLink, req.body.purchaseChannel, req.body.description || '', req.body.communication || '', req.body.dimensions || '', new Date().toISOString()], 
       function(err) {
         if (err) {
           console.error('Error inserting product:', err);
@@ -1067,8 +1254,8 @@ app.post('/api/products', function(req, res) {
 });
 
 app.put('/api/products/:id', function(req, res) {
-  db.run('UPDATE products SET englishName = ?, chineseName = ?, salesPriceLess100 = ?, salesPriceMore100 = ?, supplierId = ?, supplierName = ?, purchasePriceLess100 = ?, purchasePriceMore100 = ?, purchaseLink = ?, features = ? WHERE id = ?', 
-    [req.body.englishName, req.body.chineseName, req.body.salesPriceLess100, req.body.salesPriceMore100, req.body.supplierId, req.body.supplierName, req.body.purchasePriceLess100, req.body.purchasePriceMore100, req.body.purchaseLink, req.body.features, req.params.id], 
+  db.run('UPDATE products SET englishName = ?, chineseName = ?, salesPriceLess100 = ?, salesPriceMore100 = ?, supplierId = ?, supplierName = ?, purchasePriceLess100 = ?, purchasePriceMore100 = ?, purchaseLink = ?, features = ?, description = ?, communication = ?, dimensions = ? WHERE id = ?', 
+    [req.body.englishName, req.body.chineseName, req.body.salesPriceLess100, req.body.salesPriceMore100, req.body.supplierId, req.body.supplierName, req.body.purchasePriceLess100, req.body.purchasePriceMore100, req.body.purchaseLink, req.body.features, req.body.description || '', req.body.communication || '', req.body.dimensions || '', req.params.id], 
     function(err) {
       if (err) {
         console.error('Error updating product:', err);
@@ -1123,6 +1310,9 @@ app.get('/api/pi', function(req, res) {
 app.post('/api/pi', function(req, res) {
   const now = new Date();
   const products = JSON.stringify(req.body.products || []);
+  
+  console.log('PI Creation Request:', req.body);
+  
   db.run('INSERT INTO pi (id, customerId, customerName, products, totalAmount, note, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
     ['PI' + now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(Date.now()).slice(-3), req.body.customerId, req.body.customerName, products, req.body.totalAmount, req.body.note, req.body.status || '待处理', now.toISOString()], 
     function(err) {
@@ -1305,9 +1495,43 @@ app.get('/api/purchase-orders/:id', function(req, res) {
       res.status(500).json({ error: err.message });
     } else if (order) {
       // 解析products字段为数组
-      const result = Object.assign({}, order, {
-        products: typeof order.products === 'string' ? JSON.parse(order.products) : order.products
-      });
+      let products = [];
+      if (order.products) {
+        try {
+          products = JSON.parse(order.products);
+        } catch (e) {
+          products = [];
+        }
+      }
+      
+      // 解析trackingNumbers字段为数组
+      let trackingNumbers = [];
+      if (order.trackingNumbers) {
+        try {
+          trackingNumbers = JSON.parse(order.trackingNumbers);
+        } catch (e) {
+          trackingNumbers = [];
+        }
+      }
+      
+      // 构建新对象，确保所有字段正确序列化
+      const result = {
+        id: order.id,
+        customerId: order.customerId,
+        customerName: order.customerName,
+        supplierId: order.supplierId,
+        supplierName: order.supplierName,
+        supplierContact: order.supplierContact,
+        supplierContactInfo: order.supplierContactInfo,
+        paymentLink: order.paymentLink,
+        products: products,
+        totalAmount: order.totalAmount,
+        note: order.note,
+        status: order.status,
+        trackingNumbers: trackingNumbers,
+        created_at: order.created_at,
+        updated_at: order.updated_at
+      };
       res.json(result);
     } else {
       res.status(404).json({ error: '采购单不存在' });
@@ -1324,88 +1548,101 @@ app.post('/api/purchase-orders/generate', function(req, res) {
     return;
   }
   
-  // 从JSON数据中查找PI订单
-  const piOrder = piOrders.find(p => p.id === piId);
-  if (!piOrder) {
-    res.status(404).json({ success: false, error: 'PI订单不存在' });
-    return;
-  }
-  
-  // 解析PI订单中的产品
-  let piProducts = [];
-  try {
-    piProducts = typeof piOrder.products === 'string' ? JSON.parse(piOrder.products) : piOrder.products;
-  } catch (e) {
-    piProducts = [];
-  }
-  
-  if (!piProducts || piProducts.length === 0) {
-    res.status(400).json({ success: false, error: 'PI订单中没有产品信息' });
-    return;
-  }
-  
-  const now = new Date();
-  let generatedCount = 0;
-  
-  // 为每个产品创建采购订单
-  function createPurchaseOrder(product, index, callback) {
-    // 生成采购单编号
-    db.get('SELECT COUNT(*) as count FROM purchaseOrders', function(err, result) {
-      if (err) {
-        callback(err);
-        return;
-      }
-      
-      const poId = 'CG' + now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0') + String((result.count || 0) + index + 1).padStart(3, '0');
-      
-      // 查找产品信息
-      const productInfo = products.find(p => p.id === product.productId);
-      const purchasePrice = product.purchasePrice || (productInfo ? productInfo.purchasePrice : 0);
-      const productName = productInfo ? productInfo.chineseName || productInfo.englishName || product.productId : product.productId;
-      
-      const poProducts = [{
-        productId: product.productId,
-        productName: productName,
-        quantity: product.quantity,
-        purchasePrice: purchasePrice
-      }];
-      
-      const totalAmount = product.quantity * purchasePrice;
-      
-      // 创建采购订单，供应商设为空，等待用户后续编辑
-      db.run('INSERT INTO purchaseOrders (id, piId, supplierId, supplierName, products, totalAmount, status, note, created_at, piCustomerName, piTotalAmount, piCreatedAt, dataSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
-        [poId, piId, '', '', JSON.stringify(poProducts), totalAmount, '待处理', '', now.toISOString(), piOrder.customerName || '', piOrder.totalAmount || 0, piOrder.created_at || '', '从PI单中生成'], 
-        function(err) {
-          if (err) {
-            console.error('Error inserting purchase order:', err);
-            callback(err);
-          } else {
-            generatedCount++;
-            callback(null);
-          }
+  // 从数据库中查找PI订单
+  db.get('SELECT * FROM pi WHERE id = ?', [piId], function(err, piOrder) {
+    if (err) {
+      console.error('Error fetching PI order:', err);
+      res.status(500).json({ success: false, error: '查询PI订单失败：' + err.message });
+      return;
+    }
+    
+    if (!piOrder) {
+      res.status(404).json({ success: false, error: 'PI订单不存在' });
+      return;
+    }
+    
+    // 解析PI订单中的产品
+    let piProducts = [];
+    try {
+      piProducts = typeof piOrder.products === 'string' ? JSON.parse(piOrder.products) : piOrder.products;
+    } catch (e) {
+      piProducts = [];
+    }
+    
+    if (!piProducts || piProducts.length === 0) {
+      res.status(400).json({ success: false, error: 'PI订单中没有产品信息' });
+      return;
+    }
+    
+    const now = new Date();
+    let generatedCount = 0;
+    
+    // 为每个产品创建采购订单
+    function createPurchaseOrder(product, index, callback) {
+      // 生成采购单编号
+      db.get('SELECT COUNT(*) as count FROM purchaseOrders', function(err, result) {
+        if (err) {
+          callback(err);
+          return;
         }
-      );
-    });
-  }
-  
-  // 串行创建每个产品的采购订单
-  let completed = 0;
-  let hasError = false;
-  
-  if (piProducts.length === 0) {
-    res.json({ success: true, count: 0 });
-    return;
-  }
-  
-  piProducts.forEach(function(product, index) {
-    createPurchaseOrder(product, index, function(err) {
-      completed++;
-      if (err && !hasError) {
-        hasError = true;
-        res.status(500).json({ success: false, error: '生成采购单失败：' + err.message });
-      } else if (completed === piProducts.length && !hasError) {
-        res.json({ success: true, count: generatedCount });
-      }
+        
+        const poId = 'CG' + now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0') + String((result.count || 0) + index + 1).padStart(3, '0');
+        
+        // 查找产品信息
+        db.get('SELECT * FROM products WHERE id = ?', [product.productId], function(err, productInfo) {
+          if (err) {
+            callback(err);
+            return;
+          }
+          
+          const purchasePrice = product.purchasePrice || (productInfo ? (productInfo.purchasePriceLess100 || productInfo.purchasePriceMore100) : 0);
+          const productName = productInfo ? (productInfo.chineseName || productInfo.englishName || product.productId) : product.productId;
+          
+          const poProducts = [{
+            productId: product.productId,
+            productName: productName,
+            quantity: product.quantity,
+            purchasePrice: purchasePrice
+          }];
+          
+          const totalAmount = product.quantity * purchasePrice;
+          
+          // 创建采购订单，供应商设为空，等待用户后续编辑
+          db.run('INSERT INTO purchaseOrders (id, piId, supplierId, supplierName, products, totalAmount, status, note, created_at, piCustomerName, piTotalAmount, piCreatedAt, dataSource) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+            [poId, piId, '', '', JSON.stringify(poProducts), totalAmount, '待处理', '', now.toISOString(), piOrder.customerName || '', piOrder.totalAmount || 0, piOrder.created_at || '', '从PI单中生成'], 
+            function(err) {
+              if (err) {
+                console.error('Error inserting purchase order:', err);
+                callback(err);
+              } else {
+                generatedCount++;
+                callback(null);
+              }
+            }
+          );
+        });
+      });
+    }
+    
+    // 串行创建每个产品的采购订单
+    let completed = 0;
+    let hasError = false;
+    
+    if (piProducts.length === 0) {
+      res.json({ success: true, count: 0 });
+      return;
+    }
+    
+    piProducts.forEach(function(product, index) {
+      createPurchaseOrder(product, index, function(err) {
+        completed++;
+        if (err && !hasError) {
+          hasError = true;
+          res.status(500).json({ success: false, error: '生成采购单失败：' + err.message });
+        } else if (completed === piProducts.length && !hasError) {
+          res.json({ success: true, count: generatedCount });
+        }
+      });
     });
   });
 });
@@ -1620,6 +1857,171 @@ app.put('/api/purchase-orders/:id/status', function(req, res) {
   );
 });
 
+// 添加快递单号
+app.put('/api/purchase-orders/:id/tracking', function(req, res) {
+  const id = req.params.id;
+  const trackingInfo = req.body.trackingInfo;
+  
+  if (!trackingInfo || !trackingInfo.company || !trackingInfo.number) {
+    res.status(400).json({ success: false, error: '快递信息不完整' });
+    return;
+  }
+  
+  db.get('SELECT trackingNumbers FROM purchaseOrders WHERE id = ?', [id], function(err, order) {
+    if (err) {
+      console.error('Error fetching purchase order:', err);
+      res.status(500).json({ success: false, error: err.message });
+      return;
+    }
+    
+    if (!order) {
+      res.status(404).json({ success: false, error: '采购单不存在' });
+      return;
+    }
+    
+    let trackingNumbers = [];
+    try {
+      trackingNumbers = JSON.parse(order.trackingNumbers || '[]');
+    } catch (e) {
+      trackingNumbers = [];
+    }
+    
+    trackingNumbers.push({
+      company: trackingInfo.company,
+      number: trackingInfo.number,
+      addedAt: new Date().toISOString()
+    });
+    
+    db.run('UPDATE purchaseOrders SET trackingNumbers = ? WHERE id = ?', 
+      [JSON.stringify(trackingNumbers), id], 
+      function(err) {
+        if (err) {
+          console.error('Error updating tracking numbers:', err);
+          res.status(500).json({ success: false, error: err.message });
+        } else if (this.changes > 0) {
+          res.json({ success: true });
+        } else {
+          res.status(404).json({ success: false, error: '采购单不存在' });
+        }
+      }
+    );
+  });
+});
+
+// 删除快递单号
+app.delete('/api/purchase-orders/:id/tracking/:index', function(req, res) {
+  const id = req.params.id;
+  const index = parseInt(req.params.index);
+  
+  if (isNaN(index)) {
+    res.status(400).json({ success: false, error: '无效的索引' });
+    return;
+  }
+  
+  db.get('SELECT trackingNumbers FROM purchaseOrders WHERE id = ?', [id], function(err, order) {
+    if (err) {
+      console.error('Error fetching purchase order:', err);
+      res.status(500).json({ success: false, error: err.message });
+      return;
+    }
+    
+    if (!order) {
+      res.status(404).json({ success: false, error: '采购单不存在' });
+      return;
+    }
+    
+    let trackingNumbers = [];
+    try {
+      trackingNumbers = JSON.parse(order.trackingNumbers || '[]');
+    } catch (e) {
+      trackingNumbers = [];
+    }
+    
+    if (index < 0 || index >= trackingNumbers.length) {
+      res.status(400).json({ success: false, error: '索引超出范围' });
+      return;
+    }
+    
+    trackingNumbers.splice(index, 1);
+    
+    db.run('UPDATE purchaseOrders SET trackingNumbers = ? WHERE id = ?', 
+      [JSON.stringify(trackingNumbers), id], 
+      function(err) {
+        if (err) {
+          console.error('Error updating tracking numbers:', err);
+          res.status(500).json({ success: false, error: err.message });
+        } else if (this.changes > 0) {
+          res.json({ success: true });
+        } else {
+          res.status(404).json({ success: false, error: '采购单不存在' });
+        }
+      }
+    );
+  });
+});
+
+// 更新快递单号
+app.put('/api/purchase-orders/:id/tracking/:index', function(req, res) {
+  const id = req.params.id;
+  const index = parseInt(req.params.index);
+  const trackingInfo = req.body.trackingInfo;
+  
+  if (isNaN(index)) {
+    res.status(400).json({ success: false, error: '无效的索引' });
+    return;
+  }
+  
+  if (!trackingInfo || !trackingInfo.company || !trackingInfo.number) {
+    res.status(400).json({ success: false, error: '快递信息不完整' });
+    return;
+  }
+  
+  db.get('SELECT trackingNumbers FROM purchaseOrders WHERE id = ?', [id], function(err, order) {
+    if (err) {
+      console.error('Error fetching purchase order:', err);
+      res.status(500).json({ success: false, error: err.message });
+      return;
+    }
+    
+    if (!order) {
+      res.status(404).json({ success: false, error: '采购单不存在' });
+      return;
+    }
+    
+    let trackingNumbers = [];
+    try {
+      trackingNumbers = JSON.parse(order.trackingNumbers || '[]');
+    } catch (e) {
+      trackingNumbers = [];
+    }
+    
+    if (index < 0 || index >= trackingNumbers.length) {
+      res.status(400).json({ success: false, error: '索引超出范围' });
+      return;
+    }
+    
+    trackingNumbers[index] = {
+      company: trackingInfo.company,
+      number: trackingInfo.number,
+      addedAt: trackingNumbers[index].addedAt || new Date().toISOString()
+    };
+    
+    db.run('UPDATE purchaseOrders SET trackingNumbers = ? WHERE id = ?', 
+      [JSON.stringify(trackingNumbers), id], 
+      function(err) {
+        if (err) {
+          console.error('Error updating tracking numbers:', err);
+          res.status(500).json({ success: false, error: err.message });
+        } else if (this.changes > 0) {
+          res.json({ success: true });
+        } else {
+          res.status(404).json({ success: false, error: '采购单不存在' });
+        }
+      }
+    );
+  });
+});
+
 // 库存相关接口
 app.get('/api/inventory', function(req, res) {
   db.all('SELECT * FROM inventory', function(err, rows) {
@@ -1746,9 +2148,9 @@ app.get('/api/reminders/:purchaseOrderId', function(req, res) {
 });
 
 app.post('/api/reminders', function(req, res) {
-  const { purchaseOrderId, reminderTime, content, email } = req.body;
-  db.run('INSERT INTO reminders (purchaseOrderId, reminderTime, content, email, status, created_at) VALUES (?, ?, ?, ?, ?, ?)', 
-    [purchaseOrderId, reminderTime, content, email, '待提醒', new Date().toISOString()], 
+  const { purchaseOrderId, reminderTime, content, email, fromEmail } = req.body;
+  db.run('INSERT INTO reminders (purchaseOrderId, reminderTime, content, email, fromEmail, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+    [purchaseOrderId, reminderTime, content, email, fromEmail, '待提醒', new Date().toISOString()], 
     function(err) {
       if (err) {
         console.error('Error creating reminder:', err);
@@ -1762,9 +2164,9 @@ app.post('/api/reminders', function(req, res) {
 
 app.put('/api/reminders/:id', function(req, res) {
   const id = parseInt(req.params.id);
-  const { reminderTime, content, email } = req.body;
-  db.run('UPDATE reminders SET reminderTime = ?, content = ?, email = ?, updated_at = ? WHERE id = ?', 
-    [reminderTime, content, email, new Date().toISOString(), id], 
+  const { reminderTime, content, email, fromEmail } = req.body;
+  db.run('UPDATE reminders SET reminderTime = ?, content = ?, email = ?, fromEmail = ?, updated_at = ? WHERE id = ?', 
+    [reminderTime, content, email, fromEmail, new Date().toISOString(), id], 
     function(err) {
       if (err) {
         console.error('Error updating reminder:', err);
@@ -1866,20 +2268,28 @@ function checkReminders() {
       return;
     }
     
-    const emailConfig = emailConfigs[0];
-    
-    // 创建邮件传输器
-    const transporter = nodemailer.createTransport({
-      host: emailConfig.smtpServer,
-      port: emailConfig.smtpPort,
-      secure: emailConfig.smtpPort === 465,
-      auth: {
-        user: emailConfig.email,
-        pass: emailConfig.authCode
-      }
-    });
-    
     pendingReminders.forEach(function(reminder) {
+      // 根据提醒的 fromEmail 查找对应的邮箱配置
+      const emailConfig = reminder.fromEmail 
+        ? emailConfigs.find(config => config.email === reminder.fromEmail) 
+        : emailConfigs[0];
+      
+      if (!emailConfig) {
+        console.error('Email configuration not found for:', reminder.fromEmail);
+        updateReminderStatus(reminder, '发送失败', '未找到对应的邮箱配置');
+        return;
+      }
+      
+      // 创建邮件传输器
+      const transporter = nodemailer.createTransport({
+        host: emailConfig.smtpServer,
+        port: emailConfig.smtpPort,
+        secure: emailConfig.smtpPort === 465,
+        auth: {
+          user: emailConfig.email,
+          pass: emailConfig.authCode
+        }
+      });
         // 将前端传入的时间字符串按北京时间解析
         // 前端datetime-local输入的是用户看到的北京时间，格式为 YYYY-MM-DDTHH:mm
         const timeStr = reminder.reminderTime;
@@ -1943,6 +2353,9 @@ function checkReminders() {
                 }
               }
             );
+            
+            // 关闭transporter
+            transporter.close();
           });
         }
       });
