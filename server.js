@@ -58,6 +58,11 @@ const db = new sqlite3.Database(dbPath, (err) => {
             console.log('countryCode column may already exist or error:', alterErr.message);
           }
         });
+        db.run('ALTER TABLE customers ADD COLUMN updated_at TEXT', (alterErr) => {
+          if (alterErr && !alterErr.message.includes('duplicate column name')) {
+            console.log('updated_at column may already exist or error:', alterErr.message);
+          }
+        });
       }
     });
     
@@ -132,6 +137,15 @@ const db = new sqlite3.Database(dbPath, (err) => {
         console.log('数据库迁移 - products表已包含dimensions列，无需迁移');
       } else if (!alterErr) {
         console.log('数据库迁移成功 - 已为products表添加dimensions列');
+      }
+    });
+    
+    // 为pi表添加updated_at字段
+    db.run("ALTER TABLE pi ADD COLUMN updated_at TEXT", (alterErr) => {
+      if (alterErr && !alterErr.message.includes('duplicate column name')) {
+        console.log('数据库迁移 - pi表已包含updated_at列，无需迁移');
+      } else if (!alterErr) {
+        console.log('数据库迁移成功 - 已为pi表添加updated_at列');
       }
     });
   }
@@ -343,7 +357,7 @@ app.get('/api/customers', function(req, res) {
     params = [`%${search}%`, `%${search}%`, `%${search}%`];
   }
   
-  query += ' GROUP BY c.id';
+  query += ' GROUP BY c.id ORDER BY COALESCE(c.updated_at, c.created_at) DESC';
   
   db.all(query, params, function(err, rows) {
     if (err) {
@@ -400,8 +414,9 @@ app.post('/api/customers', function(req, res) {
     const nextNumber = (result.count || 0) + 1;
     const customerId = countryCode + String(nextNumber).padStart(4, '0');
     
-    db.run('INSERT INTO customers (id, companyName, country, website, contact, email, companySize, created_at, countryCode, phone, paymentMethod, otherContact, note, interestProducts, taxId, source, totalPurchaseAmount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [customerId, companyName, country, website, contact, email, companySize, new Date().toISOString(), countryCode, phone, paymentMethod, otherContact, note, interestProducts, taxId, source, 0],
+    const now = new Date().toISOString();
+    db.run('INSERT INTO customers (id, companyName, country, website, contact, email, companySize, created_at, updated_at, countryCode, phone, paymentMethod, otherContact, note, interestProducts, taxId, source, totalPurchaseAmount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [customerId, companyName, country, website, contact, email, companySize, now, now, countryCode, phone, paymentMethod, otherContact, note, interestProducts, taxId, source, 0],
       function(err) {
         if (err) {
           console.error('Error inserting customer:', err);
@@ -418,8 +433,8 @@ app.put('/api/customers/:id', function(req, res) {
   const customerId = req.params.id;
   const countryCode = countryCodes[req.body.country] || 'CN';
   
-  db.run('UPDATE customers SET companyName = ?, country = ?, website = ?, contact = ?, email = ?, companySize = ?, countryCode = ?, phone = ?, paymentMethod = ?, otherContact = ?, note = ?, interestProducts = ?, taxId = ?, source = ? WHERE id = ?', 
-    [req.body.companyName, req.body.country, req.body.website, req.body.contact, req.body.email || '', req.body.companySize, countryCode, req.body.phone || '', req.body.paymentMethod || '', req.body.otherContact || '', req.body.note || '', req.body.interestProducts || '', req.body.taxId || '', req.body.source || '', customerId], 
+  db.run('UPDATE customers SET companyName = ?, country = ?, website = ?, contact = ?, email = ?, companySize = ?, countryCode = ?, phone = ?, paymentMethod = ?, otherContact = ?, note = ?, interestProducts = ?, taxId = ?, source = ?, updated_at = ? WHERE id = ?', 
+    [req.body.companyName, req.body.country, req.body.website, req.body.contact, req.body.email || '', req.body.companySize, countryCode, req.body.phone || '', req.body.paymentMethod || '', req.body.otherContact || '', req.body.note || '', req.body.interestProducts || '', req.body.taxId || '', req.body.source || '', new Date().toISOString(), customerId], 
     function(err) {
       if (err) {
         console.error('Error updating customer:', err);
@@ -434,7 +449,7 @@ app.put('/api/customers/:id', function(req, res) {
 });
 
 app.delete('/api/customers/:id', function(req, res) {
-  const customerId = req.params.id;
+  const customerId = req.params.id.trim();
   
   db.run('DELETE FROM customers WHERE id = ?', [customerId], function(err) {
     if (err) {
@@ -1426,7 +1441,7 @@ app.delete('/api/products/:id', function(req, res) {
 
 // 销售报价单（PI）相关接口
 app.get('/api/pi', function(req, res) {
-  db.all('SELECT * FROM pi', function(err, piOrders) {
+  db.all('SELECT * FROM pi ORDER BY COALESCE(updated_at, created_at) DESC', function(err, piOrders) {
     if (err) {
       console.error('Error fetching PI orders:', err);
       res.status(500).json({ error: err.message });
@@ -1463,8 +1478,9 @@ app.post('/api/pi', function(req, res) {
     const seq = String((result.count || 0) + 1).padStart(4, '0');
     const piId = 'PI' + dateStr + seq;
     
-    db.run('INSERT INTO pi (id, customerId, customerName, products, totalAmount, note, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-      [piId, req.body.customerId, req.body.customerName, products, req.body.totalAmount, req.body.note, req.body.status || '待处理', now.toISOString()], 
+    const nowStr = now.toISOString();
+    db.run('INSERT INTO pi (id, customerId, customerName, products, totalAmount, note, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+      [piId, req.body.customerId, req.body.customerName, products, req.body.totalAmount, req.body.note, req.body.status || '待处理', nowStr, nowStr], 
       function(err) {
         if (err) {
           console.error('Error inserting PI:', err);
@@ -1479,8 +1495,8 @@ app.post('/api/pi', function(req, res) {
 
 app.put('/api/pi/:id', function(req, res) {
   const products = JSON.stringify(req.body.products || []);
-  db.run('UPDATE pi SET customerId = ?, customerName = ?, products = ?, totalAmount = ?, note = ?, status = ? WHERE id = ?', 
-    [req.body.customerId, req.body.customerName, products, req.body.totalAmount, req.body.note, req.body.status, req.params.id], 
+  db.run('UPDATE pi SET customerId = ?, customerName = ?, products = ?, totalAmount = ?, note = ?, status = ?, updated_at = ? WHERE id = ?', 
+    [req.body.customerId, req.body.customerName, products, req.body.totalAmount, req.body.note, req.body.status, new Date().toISOString(), req.params.id], 
     function(err) {
       if (err) {
         console.error('Error updating PI:', err);
@@ -1547,8 +1563,9 @@ app.post('/api/pi-orders', function(req, res) {
     const seq = String((result.count || 0) + 1).padStart(4, '0');
     const piId = 'PI' + dateStr + seq;
     
-    db.run('INSERT INTO pi (id, customerId, customerName, products, totalAmount, note, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-      [piId, req.body.customerId, req.body.customerName, products, req.body.totalAmount, req.body.note, req.body.status || '待处理', now.toISOString()], 
+    const nowStr = now.toISOString();
+    db.run('INSERT INTO pi (id, customerId, customerName, products, totalAmount, note, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', 
+      [piId, req.body.customerId, req.body.customerName, products, req.body.totalAmount, req.body.note, req.body.status || '待处理', nowStr, nowStr], 
       function(err) {
         if (err) {
           console.error('Error inserting PI:', err);
@@ -1563,8 +1580,8 @@ app.post('/api/pi-orders', function(req, res) {
 
 app.put('/api/pi-orders/:id', function(req, res) {
   const products = JSON.stringify(req.body.products || []);
-  db.run('UPDATE pi SET customerId = ?, customerName = ?, products = ?, totalAmount = ?, note = ?, status = ? WHERE id = ?', 
-    [req.body.customerId, req.body.customerName, products, req.body.totalAmount, req.body.note, req.body.status, req.params.id], 
+  db.run('UPDATE pi SET customerId = ?, customerName = ?, products = ?, totalAmount = ?, note = ?, status = ?, updated_at = ? WHERE id = ?', 
+    [req.body.customerId, req.body.customerName, products, req.body.totalAmount, req.body.note, req.body.status, new Date().toISOString(), req.params.id], 
     function(err) {
       if (err) {
         console.error('Error updating PI:', err);

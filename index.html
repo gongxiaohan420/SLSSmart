@@ -231,7 +231,7 @@
 
       for (const item of products) {
         const purchasePrice = item.purchasePrice || 0;
-        html += '<tr><td class="px-6 py-3 text-sm text-gray-900">' + item.id + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.englishName + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.chineseName + '</td><td class="px-6 py-3 text-sm text-gray-900">¥' + item.salesPriceLess100 + '</td><td class="px-6 py-3 text-sm text-gray-900">¥' + item.salesPriceMore100 + '</td><td class="px-6 py-3 text-sm text-gray-900">' + (item.supplierName || '-') + '</td><td class="px-6 py-3 text-sm text-gray-900">¥' + purchasePrice + '</td><td class="px-6 py-3 text-sm text-gray-900">' + (item.purchaseLink ? '<a href="' + item.purchaseLink + '" target="_blank" class="text-blue-600 hover:text-blue-900 truncate max-w-xs inline-block">查看</a>' : '-') + '</td><td class="px-6 py-3 text-sm text-gray-900">' + (item.purchaseChannel || '-') + '</td><td class="px-6 py-3 text-sm text-gray-900 truncate max-w-xs">' + (item.description || '-') + '</td><td class="px-6 py-3 text-sm text-gray-900 truncate max-w-xs">' + (item.communication || '-') + '</td><td class="px-6 py-3 text-sm text-gray-900">' + (item.dimensions || '-') + '</td><td class="px-6 py-3 text-sm"><button onclick="editProduct(\'' + item.id + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">编辑</button><button onclick="deleteProduct(\'' + item.id + '\')" class="text-red-600 hover:text-red-900 text-xs">删除</button></td></tr>';
+        html += '<tr><td class="px-6 py-3 text-sm text-gray-900">' + item.id + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.englishName + '</td><td class="px-6 py-3 text-sm text-gray-900">' + item.chineseName + '</td><td class="px-6 py-3 text-sm text-gray-900">¥' + item.salesPriceLess100 + '</td><td class="px-6 py-3 text-sm text-gray-900">¥' + item.salesPriceMore100 + '</td><td class="px-6 py-3 text-sm text-gray-900">' + (item.supplierName || '-') + '</td><td class="px-6 py-3 text-sm text-gray-900">¥' + purchasePrice + '</td><td class="px-6 py-3 text-sm text-gray-900">' + (item.purchaseLink ? '<a href="' + item.purchaseLink + '" target="_blank" class="text-blue-600 hover:text-blue-900 truncate max-w-xs inline-block underline" title="' + item.purchaseLink + '">' + item.purchaseLink + '</a>' : '-') + '</td><td class="px-6 py-3 text-sm text-gray-900">' + (item.purchaseChannel || '-') + '</td><td class="px-6 py-3 text-sm text-gray-900 truncate max-w-xs">' + (item.description || '-') + '</td><td class="px-6 py-3 text-sm text-gray-900 truncate max-w-xs">' + (item.communication || '-') + '</td><td class="px-6 py-3 text-sm text-gray-900">' + (item.dimensions || '-') + '</td><td class="px-6 py-3 text-sm"><button onclick="editProduct(\'' + item.id + '\')" class="text-blue-600 hover:text-blue-900 mr-2 text-xs">编辑</button><button onclick="deleteProduct(\'' + item.id + '\')" class="text-red-600 hover:text-red-900 text-xs">删除</button></td></tr>';
       }
       
       html += '</tbody></table><div class="mt-4 flex justify-between items-center"><div class="text-sm text-gray-500">共 ' + products.length + ' 条记录</div></div>';
@@ -306,7 +306,7 @@
         cellHTML += '<td class="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">' + (item.companyName || '-') + '</td>';
         cellHTML += '<td class="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">' + (item.country || '-') + '</td>';
         cellHTML += '<td class="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">' + (item.countryCode || '-') + '</td>';
-        cellHTML += '<td class="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">' + (item.website || '-') + '</td>';
+        cellHTML += '<td class="px-3 py-3 text-sm whitespace-nowrap">' + (item.website ? '<a href="' + (item.website.startsWith('http') ? '' : 'http://') + item.website + '" target="_blank" class="text-blue-600 hover:text-blue-900 underline">' + item.website + '</a>' : '-') + '</td>';
         cellHTML += '<td class="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">' + (item.contact || '-') + '</td>';
         cellHTML += '<td class="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">' + (item.email || '-') + '</td>';
         cellHTML += '<td class="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">' + (item.phone || '-') + '</td>';
@@ -820,7 +820,9 @@
           const productInfo = productsList.find(p => p.id === product.productId);
           const purchaseLink = productInfo ? productInfo.purchaseLink : '';
           const purchaseChannel = productInfo ? productInfo.purchaseChannel : '';
-          return '<div class="border-b border-gray-200 py-4" data-index="' + index + '"><div class="grid grid-cols-10 gap-4"><div><label class="block text-xs text-gray-500">产品ID</label><input type="text" value="' + (product.productId || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">产品中文名</label><input type="text" value="' + (product.chineseName || product.productName || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">产品英文名</label><input type="text" value="' + (product.englishName || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">购买数量</label><input type="text" value="' + (product.quantity || 0) + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">采购价格</label><input type="number" value="' + (product.unitPrice || 0) + '" step="0.01" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">采购链接</label><a href="' + (purchaseLink || '#') + '" target="_blank" class="block px-2 py-1 text-sm text-blue-600 hover:text-blue-800 truncate">' + (purchaseLink || '无') + '</a></div><div><label class="block text-xs text-gray-500">采购渠道</label><input type="text" value="' + (purchaseChannel || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">采购运费</label><input type="number" value="' + (product.shippingFee || 0) + '" step="0.01" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">查看历史价格</label><button onclick="viewProductHistory(\'' + product.productId + '\')" class="w-full px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">查看</button></div><div><label class="block text-xs text-gray-500">产品库存</label><input type="number" value="' + (inventory ? inventory.quantity : 0) + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div></div><div class="mt-2 text-right text-sm text-gray-500">小计: ¥' + (((product.unitPrice || 0) * (product.quantity || 0) + (product.shippingFee || 0)).toFixed(2)) + '</div></div>';
+          const defaultPurchasePrice = productInfo ? (productInfo.purchasePrice || productInfo.purchasePriceLess100 || productInfo.purchasePriceMore100 || 0) : 0;
+          const unitPrice = product.unitPrice || product.purchasePrice || defaultPurchasePrice;
+          return '<div class="border-b border-gray-200 py-4" data-index="' + index + '"><div class="grid grid-cols-10 gap-4"><div><label class="block text-xs text-gray-500">产品ID</label><input type="text" value="' + (product.productId || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">产品中文名</label><input type="text" value="' + (product.chineseName || product.productName || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">产品英文名</label><input type="text" value="' + (product.englishName || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">购买数量</label><input type="text" value="' + (product.quantity || 0) + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">采购价格</label><input type="number" value="' + unitPrice + '" step="0.01" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">采购链接</label><a href="' + (purchaseLink || '#') + '" target="_blank" class="block px-2 py-1 text-sm text-blue-600 hover:text-blue-800 truncate">' + (purchaseLink || '无') + '</a></div><div><label class="block text-xs text-gray-500">采购渠道</label><input type="text" value="' + (purchaseChannel || '') + '" disabled class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></div><div><label class="block text-xs text-gray-500">采购运费</label><input type="number" value="' + (product.shippingFee || 0) + '" step="0.01" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">查看历史价格</label><button onclick="viewProductHistory(\'' + product.productId + '\')" class="w-full px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">查看</button></div><div><label class="block text-xs text-gray-500">产品库存</label><input type="number" value="' + (inventory ? inventory.quantity : 0) + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div></div><div class="mt-2 text-right text-sm text-gray-500">小计: ¥' + ((unitPrice * (product.quantity || 0) + (product.shippingFee || 0)).toFixed(2)) + '</div></div>';
         }).join('');
 
         // 事件标签映射
@@ -1055,7 +1057,7 @@
             return '<option value="' + p.id + '" data-chinese-name="' + p.chineseName + '" data-english-name="' + p.englishName + '" data-unit-price="' + p.purchasePrice + '" data-purchase-link="' + (p.purchaseLink || '') + '" data-purchase-channel="' + (p.purchaseChannel || '') + '" ' + selected + '>' + p.chineseName + '</option>';
           }).join('');
           
-          return '<div class="border-b border-gray-200 py-4" data-index="' + index + '"><div class="grid grid-cols-7 gap-4"><div><label class="block text-xs text-gray-500">产品ID</label><input type="text" id="edit-product-id-' + index + '" value="' + (product.productId || '') + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" readonly></div><div><label class="block text-xs text-gray-500">产品名称</label><select id="edit-product-select-' + index + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded" onchange="onEditProductChange(' + index + ')">' + productOptions + '</select></div><div><label class="block text-xs text-gray-500">购买数量</label><input type="number" id="edit-product-quantity-' + index + '" value="' + (product.quantity || 0) + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">采购价格</label><input type="number" id="edit-product-price-' + index + '" value="' + (product.unitPrice || 0) + '" step="0.01" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">采购链接</label><input type="text" id="edit-product-link-' + index + '" value="' + (product.purchaseLink || '') + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">采购渠道</label><input type="text" id="edit-product-channel-' + index + '" value="' + (product.purchaseChannel || '') + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">操作</label><button onclick="removeEditProduct(' + index + ')" class="text-red-600 hover:text-red-900">删除</button></div></div><div class="mt-2 text-right text-sm text-gray-500">小计: ¥' + ((product.unitPrice || 0) * (product.quantity || 0)).toFixed(2) + '</div></div>';
+          return '<div class="border-b border-gray-200 py-4" data-index="' + index + '"><div class="grid grid-cols-7 gap-4"><div><label class="block text-xs text-gray-500">产品ID</label><input type="text" id="edit-product-id-' + index + '" value="' + (product.productId || '') + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" readonly></div><div><label class="block text-xs text-gray-500">产品名称</label><select id="edit-product-select-' + index + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded" onchange="onEditProductChange(' + index + ')">' + productOptions + '</select></div><div><label class="block text-xs text-gray-500">购买数量</label><input type="number" id="edit-product-quantity-' + index + '" value="' + (product.quantity || 0) + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">采购价格</label><input type="number" id="edit-product-price-' + index + '" value="' + unitPrice + '" step="0.01" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">采购链接</label><input type="text" id="edit-product-link-' + index + '" value="' + (product.purchaseLink || '') + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">采购渠道</label><input type="text" id="edit-product-channel-' + index + '" value="' + (product.purchaseChannel || '') + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">操作</label><button onclick="removeEditProduct(' + index + ')" class="text-red-600 hover:text-red-900">删除</button></div></div><div class="mt-2 text-right text-sm text-gray-500">小计: ¥' + ((product.unitPrice || 0) * (product.quantity || 0)).toFixed(2) + '</div></div>';
         }).join('');
 
         let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑采购单 - ' + purchaseOrder.id + '</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商</label><select id="edit-supplier-select" class="w-full px-3 py-2 border border-gray-300 rounded-md">';
@@ -1272,12 +1274,45 @@
         if (response.ok) {
           alert('快递信息添加成功');
           closeModal();
-          viewPurchaseOrderDetail(id);
+          // 刷新快递信息区域而不是重新加载整个详情页
+          refreshTrackingInfo(id);
         } else {
           alert('添加失败：' + data.error);
         }
       } catch (error) {
         alert('添加失败：' + error.message);
+      }
+    }
+    
+    async function refreshTrackingInfo(id) {
+      const user = checkLogin();
+      if (!user) return;
+      
+      try {
+        const response = await fetch('/api/purchase-orders/' + id, {
+          headers: {
+            'username': user.username,
+            'password': user.role === '业务员' ? 'sales123' : 'purchase123'
+          }
+        });
+        const purchaseOrder = await response.json();
+        if (response.ok) {
+          const container = document.getElementById('tracking-info-container');
+          if (container && Array.isArray(purchaseOrder.trackingNumbers)) {
+            container.innerHTML = purchaseOrder.trackingNumbers.length > 0 ? 
+              purchaseOrder.trackingNumbers.map((t, idx) => '<div class="flex items-center mb-2 space-x-2">' +
+                '<select id="tracking-company-' + idx + '" class="px-2 py-1 text-sm border border-gray-300 rounded">' +
+                ['顺丰速运', '圆通快递', '中通快递', '韵达快递', '申通快递', '极兔速递', '邮政EMS', '京东物流', '德邦快递', '其他'].map(c => '<option value="' + c + '"' + (c === t.company ? ' selected' : '') + '>' + c + '</option>').join('') +
+                '</select>' +
+                '<input type="text" id="tracking-number-' + idx + '" value="' + (t.number || t || '') + '" class="flex-1 px-2 py-1 text-sm border border-gray-300 rounded" placeholder="快递单号">' +
+                '<button onclick="queryTrackingStatus(\'' + (t.company || '') + '\', \'' + (t.number || t || '') + '\')" class="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600">查询</button>' +
+                '<button onclick="updateTrackingNumber(\'' + id + '\', ' + idx + ')" class="px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">保存</button>' +
+                '<button onclick="deleteTrackingNumber(\'' + id + '\', ' + idx + ')" class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600">删除</button>' +
+                '</div>').join('') : '<div class="text-sm text-gray-500">暂无快递信息</div>';
+          }
+        }
+      } catch (error) {
+        console.error('刷新快递信息失败:', error);
       }
     }
 
@@ -1311,7 +1346,7 @@
         const data = await response.json();
         if (response.ok) {
           alert('快递信息更新成功');
-          viewPurchaseOrderDetail(purchaseOrderId);
+          refreshTrackingInfo(purchaseOrderId);
         } else {
           alert('更新失败：' + data.error);
         }
@@ -1338,7 +1373,7 @@
         const data = await response.json();
         if (response.ok) {
           alert('删除成功');
-          viewPurchaseOrderDetail(purchaseOrderId);
+          refreshTrackingInfo(purchaseOrderId);
         } else {
           alert('删除失败：' + data.error);
         }
@@ -1348,6 +1383,11 @@
     }
 
     function queryTrackingStatus(company, number) {
+      // 圆通快递因隐私保护无法在快递100网页查询
+      if (company === '圆通快递') {
+        alert('温馨提示：\n\n为响应快递隐私安全保护，圆通快递需前往微信小程序或快递100APP查询。\n\n您可以：\n1. 打开微信，搜索"圆通速递"小程序\n2. 下载快递100APP进行查询\n\n感谢您的理解！');
+        return;
+      }
       // 使用快递100的查询页面而不是API接口
       const queryUrl = 'https://www.kuaidi100.com/?nu=' + encodeURIComponent(number) + '&com=' + getCompanyCode(company);
       window.open(queryUrl, '_blank');
@@ -1424,12 +1464,11 @@
         });
         const products = await productsResponse.json();
 
-        let suppliersHTML = suppliers.map(s => '<option value="' + s.id + '">' + s.name + '</option>').join('');
+        let suppliersHTML = '<option value="">请选择供应商</option>' + suppliers.map(s => '<option value="' + s.id + '">' + s.name + '</option>').join('');
 
         let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增采购单</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">关联PI编号</label><input type="text" id="create-pi-id" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="可选"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">供应商</label><select id="create-supplier-select" class="w-full px-3 py-2 border border-gray-300 rounded-md">' + suppliersHTML + '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="create-purchase-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3"></textarea></div><div class="mb-6"><h4 class="font-medium text-gray-900 mb-3">产品列表</h4><div id="create-product-list" data-products="' + encodeURIComponent(JSON.stringify(products)) + '"></div><button onclick="addProductRow()" class="mt-3 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">添加产品</button></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="savePurchaseOrder()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
 
         document.body.insertAdjacentHTML('beforeend', modalHTML);
-        addProductRow();
       } catch (error) {
         alert('创建采购单失败：' + error.message);
       }
@@ -1448,7 +1487,7 @@
       productsHTML += '<option value="">请选择产品</option>';
       products.forEach(p => {
         const displayName = p.chineseName || p.englishName || p.id;
-        productsHTML += '<option value="' + p.id + '" data-purchase-price-less100="' + (p.purchasePriceLess100 || '') + '" data-purchase-price-more100="' + (p.purchasePriceMore100 || '') + '" data-purchase-link="' + (p.purchaseLink || '') + '" data-purchase-channel="' + (p.purchaseChannel || '') + '">' + displayName + '</option>';
+        productsHTML += '<option value="' + p.id + '" data-purchase-price="' + (p.purchasePrice || '') + '" data-purchase-link="' + (p.purchaseLink || '') + '" data-purchase-channel="' + (p.purchaseChannel || '') + '">' + displayName + '</option>';
       });
       productsHTML += '</select>';
 
@@ -1462,19 +1501,13 @@
       const container = document.getElementById('create-product-list');
       const row = container.querySelector('[data-index="' + index + '"]');
       const priceInput = row.querySelector('.price-input');
-      const quantityInput = row.querySelector('.quantity-input');
       const linkInput = row.querySelector('.link-input');
       const channelInput = row.querySelector('.channel-input');
       
       const selectedOption = selectElement.options[selectElement.selectedIndex];
       if (selectedOption.value) {
-        const purchasePriceLess100 = parseFloat(selectedOption.dataset.purchasePriceLess100) || 0;
-        const purchasePriceMore100 = parseFloat(selectedOption.dataset.purchasePriceMore100) || 0;
-        const quantity = parseInt(quantityInput.value) || 1;
-        
-        // 根据数量选择对应的采购价格
-        const purchasePrice = quantity < 100 ? purchasePriceLess100 : purchasePriceMore100;
-        priceInput.value = purchasePrice ? purchasePrice.toFixed(2) : '';
+        const purchasePrice = parseFloat(selectedOption.dataset.purchasePrice);
+        priceInput.value = purchasePrice !== null && purchasePrice !== undefined ? purchasePrice.toFixed(2) : '';
         
         // 填充采购链接和采购渠道
         linkInput.value = selectedOption.dataset.purchaseLink || '';
@@ -1486,22 +1519,9 @@
       }
     }
     
-    // 数量变化时更新采购价格
+    // 数量变化时的处理（采购价不随数量变化）
     function onPurchaseQuantityChange(inputElement, index) {
-      const container = document.getElementById('create-product-list');
-      const row = container.querySelector('[data-index="' + index + '"]');
-      const select = row.querySelector('.product-select');
-      const priceInput = row.querySelector('.price-input');
-      
-      const selectedOption = select.options[select.selectedIndex];
-      if (selectedOption.value) {
-        const purchasePriceLess100 = parseFloat(selectedOption.dataset.purchasePriceLess100) || 0;
-        const purchasePriceMore100 = parseFloat(selectedOption.dataset.purchasePriceMore100) || 0;
-        const quantity = parseInt(inputElement.value) || 1;
-        
-        const purchasePrice = quantity < 100 ? purchasePriceLess100 : purchasePriceMore100;
-        priceInput.value = purchasePrice ? purchasePrice.toFixed(2) : '';
-      }
+      // 采购价现在只有一个，不随数量变化
     }
 
     // 移除商品行
@@ -2137,7 +2157,7 @@
         productsHTML += '<option value="' + p.id + '" data-chinese-name="' + (p.chineseName || '') + '" data-english-name="' + (p.englishName || '') + '" data-sales-price-less100="' + (p.salesPriceLess100 || '') + '" data-sales-price-more100="' + (p.salesPriceMore100 || '') + '">' + displayName + '</option>';
       });
 
-      let rowHTML = '<div class="border-b border-gray-200 py-4" data-index="' + index + '"><div class="grid grid-cols-5 gap-4"><div><label class="block text-xs text-gray-500">产品名称</label><select class="pi-product-select w-full px-2 py-1 text-sm border border-gray-300 rounded" onchange="onPIProductSelect(this, ' + index + ')">' + productsHTML + '</select></div><div><label class="block text-xs text-gray-500">产品ID</label><input type="text" class="pi-product-id w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" readonly></div><div><label class="block text-xs text-gray-500">数量</label><input type="number" value="1" class="pi-product-quantity w-full px-2 py-1 text-sm border border-gray-300 rounded" onchange="onPIQuantityChange(this, ' + index + ')"></div><div><label class="block text-xs text-gray-500">销售价</label><input type="text" class="pi-product-sales-price w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" readonly></div><div><label class="block text-xs text-gray-500">操作</label><button onclick="removePIProductRow(' + index + ')" class="text-red-600 hover:text-red-900">删除</button></div></div></div>';
+      let rowHTML = '<div class="border-b border-gray-200 py-4" data-index="' + index + '"><div class="grid grid-cols-5 gap-4"><div><label class="block text-xs text-gray-500">产品名称</label><select class="pi-product-select w-full px-2 py-1 text-sm border border-gray-300 rounded" onchange="onPIProductSelect(this, ' + index + ')">' + productsHTML + '</select></div><div><label class="block text-xs text-gray-500">产品ID</label><input type="text" class="pi-product-id w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" readonly></div><div><label class="block text-xs text-gray-500">数量</label><input type="number" value="1" class="pi-product-quantity w-full px-2 py-1 text-sm border border-gray-300 rounded" onchange="onPIQuantityChange(this, ' + index + ')"></div><div><label class="block text-xs text-gray-500">销售价</label><input type="number" step="0.01" class="pi-product-sales-price w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">操作</label><button onclick="removePIProductRow(' + index + ')" class="text-red-600 hover:text-red-900">删除</button></div></div></div>';
 
       container.insertAdjacentHTML('beforeend', rowHTML);
     }
@@ -2697,7 +2717,7 @@
         
         let sourceOptions = ['阿里国际站', '中国制造网', '搜索开发', '熟人介绍', '社媒', '自建站', '陌生消息', '展会'].map(s => `<option value="${s}">${s}</option>`).join('');
         
-        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增客户</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">客户ID</label><input type="text" id="create-customer-id" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100" readonly placeholder="自动生成"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司名称</label><input type="text" id="create-customer-companyname" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">国家</label><select id="create-customer-country" class="w-full px-3 py-2 border border-gray-300 rounded-md">' + countryOptions + '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司网址</label><input type="text" id="create-customer-website" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="create-customer-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">电子邮箱</label><input type="text" id="create-customer-email" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">电话</label><input type="text" id="create-customer-phone" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司规模</label><input type="text" id="create-customer-companysize" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">付款方式</label><input type="text" id="create-customer-paymentmethod" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">其他联系方式</label><input type="text" id="create-customer-othercontact" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="create-customer-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3"></textarea></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">兴趣产品</label><input type="text" id="create-customer-interestproducts" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">地址税号</label><input type="text" id="create-customer-taxid" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">来源</label><select id="create-customer-source" class="w-full px-3 py-2 border border-gray-300 rounded-md"><option value="">请选择来源</option>' + sourceOptions + '</select></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveCustomer()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增客户</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">客户ID</label><input type="text" id="create-customer-id" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100" readonly placeholder="自动生成"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司名称</label><input type="text" id="create-customer-companyname" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">国家</label><input type="text" id="create-customer-country" list="country-list" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="输入国家名称搜索..."><datalist id="country-list">' + countryOptions + '</datalist></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司网址</label><input type="text" id="create-customer-website" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="create-customer-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">电子邮箱</label><input type="text" id="create-customer-email" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">电话</label><input type="text" id="create-customer-phone" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司规模</label><input type="text" id="create-customer-companysize" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">付款方式</label><input type="text" id="create-customer-paymentmethod" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">其他联系方式</label><input type="text" id="create-customer-othercontact" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="create-customer-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3"></textarea></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">兴趣产品</label><input type="text" id="create-customer-interestproducts" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">地址税号</label><input type="text" id="create-customer-taxid" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">来源</label><select id="create-customer-source" class="w-full px-3 py-2 border border-gray-300 rounded-md"><option value="">请选择来源</option>' + sourceOptions + '</select></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveCustomer()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
         document.body.insertAdjacentHTML('beforeend', modalHTML);
       } catch (error) {
         alert('加载国家列表失败：' + error.message);
@@ -2757,11 +2777,11 @@
         const customer = await customerResponse.json();
         const countries = await countriesResponse.json();
         
-        let countryOptions = countries.map(c => `<option value="${c.name}" ${c.name === customer.country ? 'selected' : ''}>${c.name}</option>`).join('');
+        let countryOptions = countries.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
         
         let sourceOptions = ['阿里国际站', '中国制造网', '搜索开发', '熟人介绍', '社媒', '自建站', '陌生消息', '展会'].map(s => `<option value="${s}" ${s === customer.source ? 'selected' : ''}>${s}</option>`).join('');
         
-        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑客户</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">客户ID</label><input type="text" id="edit-customer-id" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.id + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司名称</label><input type="text" id="edit-customer-companyname" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.companyName + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">国家</label><select id="edit-customer-country" class="w-full px-3 py-2 border border-gray-300 rounded-md">' + countryOptions + '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司网址</label><input type="text" id="edit-customer-website" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.website || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="edit-customer-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.contact + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">电子邮箱</label><input type="text" id="edit-customer-email" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.email || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">电话</label><input type="text" id="edit-customer-phone" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.phone || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司规模</label><input type="text" id="edit-customer-companysize" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.companySize || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">付款方式</label><input type="text" id="edit-customer-paymentmethod" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.paymentMethod || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">其他联系方式</label><input type="text" id="edit-customer-othercontact" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.otherContact || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="edit-customer-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3">' + (customer.note || '') + '</textarea></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">兴趣产品</label><input type="text" id="edit-customer-interestproducts" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.interestProducts || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">地址税号</label><input type="text" id="edit-customer-taxid" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.taxId || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">来源</label><select id="edit-customer-source" class="w-full px-3 py-2 border border-gray-300 rounded-md"><option value="">请选择来源</option>' + sourceOptions + '</select></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="updateCustomer()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑客户</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">客户ID</label><input type="text" id="edit-customer-id" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.id + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司名称</label><input type="text" id="edit-customer-companyname" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.companyName + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">国家</label><input type="text" id="edit-customer-country" list="edit-country-list" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.country || '') + '" placeholder="输入国家名称搜索..."><datalist id="edit-country-list">' + countryOptions + '</datalist></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司网址</label><input type="text" id="edit-customer-website" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.website || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">联系人</label><input type="text" id="edit-customer-contact" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + customer.contact + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">电子邮箱</label><input type="text" id="edit-customer-email" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.email || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">电话</label><input type="text" id="edit-customer-phone" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.phone || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">公司规模</label><input type="text" id="edit-customer-companysize" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.companySize || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">付款方式</label><input type="text" id="edit-customer-paymentmethod" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.paymentMethod || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">其他联系方式</label><input type="text" id="edit-customer-othercontact" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.otherContact || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="edit-customer-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3">' + (customer.note || '') + '</textarea></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">兴趣产品</label><input type="text" id="edit-customer-interestproducts" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.interestProducts || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">地址税号</label><input type="text" id="edit-customer-taxid" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (customer.taxId || '') + '"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">来源</label><select id="edit-customer-source" class="w-full px-3 py-2 border border-gray-300 rounded-md"><option value="">请选择来源</option>' + sourceOptions + '</select></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="updateCustomer()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
         document.body.insertAdjacentHTML('beforeend', modalHTML);
       } catch (error) {
         alert('获取客户信息失败：' + error.message);
@@ -2842,10 +2862,10 @@
         let productsHTML = '<option value="">请选择产品</option>';
         products.forEach(p => {
           const displayName = p.englishName || p.chineseName || p.id;
-          productsHTML += '<option value="' + p.id + '" data-chinese-name="' + (p.chineseName || '') + '">' + displayName + '</option>';
+          productsHTML += '<option value="' + p.id + '" data-chinese-name="' + (p.chineseName || '') + '" data-english-name="' + (p.englishName || '') + '">' + displayName + '</option>';
         });
         
-        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增库存</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品英文名称</label><select id="create-inventory-product-select" class="w-full px-3 py-2 border border-gray-300 rounded-md" onchange="onInventoryProductSelect(this)">' + productsHTML + '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品ID</label><input type="text" id="create-inventory-productid" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品中文名称</label><input type="text" id="create-inventory-chinese-name" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">库存数量</label><input type="number" id="create-inventory-quantity" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="0"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">仓库</label><input type="text" id="create-inventory-warehouse" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveInventory()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">新增库存</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品英文名称</label><select id="create-inventory-product-select" class="w-full px-3 py-2 border border-gray-300 rounded-md" onchange="onInventoryProductSelect(this)">' + productsHTML + '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品ID</label><input type="text" id="create-inventory-productid" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品英文名称</label><input type="text" id="create-inventory-english-name" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">产品中文名称</label><input type="text" id="create-inventory-chinese-name" class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">库存数量</label><input type="number" id="create-inventory-quantity" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="0"></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">仓库</label><input type="text" id="create-inventory-warehouse" class="w-full px-3 py-2 border border-gray-300 rounded-md"></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveInventory()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
         document.body.insertAdjacentHTML('beforeend', modalHTML);
       } catch (error) {
         alert('加载产品列表失败：' + error.message);
@@ -2856,13 +2876,16 @@
       const selectedOption = selectElement.options[selectElement.selectedIndex];
       const productIdInput = document.getElementById('create-inventory-productid');
       const chineseNameInput = document.getElementById('create-inventory-chinese-name');
+      const englishNameInput = document.getElementById('create-inventory-english-name');
       
       if (selectedOption.value) {
         productIdInput.value = selectedOption.value;
         chineseNameInput.value = selectedOption.dataset.chineseName || '';
+        englishNameInput.value = selectedOption.dataset.englishName || '';
       } else {
         productIdInput.value = '';
         chineseNameInput.value = '';
+        englishNameInput.value = '';
       }
     }
 
@@ -2870,13 +2893,15 @@
       const user = checkLogin();
       if (!user) return;
       const productId = document.getElementById('create-inventory-productid').value;
+      const englishName = document.getElementById('create-inventory-english-name').value;
+      const chineseName = document.getElementById('create-inventory-chinese-name').value;
       const quantity = parseInt(document.getElementById('create-inventory-quantity').value) || 0;
       const warehouse = document.getElementById('create-inventory-warehouse').value;
       try {
         const response = await fetch('/api/inventory', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'username': user.username, 'password': user.role === '业务员' ? 'sales123' : 'purchase123' },
-          body: JSON.stringify({ productId, quantity, warehouse })
+          body: JSON.stringify({ productId, englishName, chineseName, quantity, warehouse })
         });
         const data = await response.json();
         if (response.ok) {
@@ -3241,7 +3266,7 @@
           return '<option value="' + c.id + '"' + selected + '>' + c.companyName + '</option>';
         }).join('');
 
-        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑销售报价单</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><input type="hidden" id="edit-pi-customer-id" value="' + (pi.customerId || '') + '"><input type="hidden" id="edit-pi-customer-name" value="' + (pi.customerName || '') + '"><input type="hidden" id="edit-pi-status" value="' + (pi.status || '') + '"><input type="hidden" id="edit-pi-total-amount" value="' + (pi.totalAmount || '0') + '"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">客户</label><select id="edit-pi-customer" class="w-full px-3 py-2 border border-gray-300 rounded-md" disabled>' + customersHTML + '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">状态</label><input type="text" id="edit-pi-status-display" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="' + (pi.status || '') + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">总金额</label><input type="text" id="edit-pi-total-display" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="¥' + (pi.totalAmount || '0') + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="edit-pi-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3">' + (pi.note || '') + '</textarea></div><div class="mb-6"><h4 class="font-medium text-gray-900 mb-3">产品列表</h4><div id="edit-pi-product-list" data-products=\'' + JSON.stringify(products) + '\' data-pi-id=\'' + id + '\'></div><button onclick="addEditPIProductRow()" class="mt-3 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">添加产品</button></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveEditPI()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
+        let modalHTML = '<div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full"><div class="bg-white min-h-screen"><div class="bg-gray-800 text-white px-6 py-4"><div class="flex justify-between items-center"><h3 class="text-xl font-bold">编辑销售报价单</h3><button onclick="closeModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded">返回</button></div></div><div class="p-6"><input type="hidden" id="edit-pi-customer-id" value="' + (pi.customerId || '') + '"><input type="hidden" id="edit-pi-customer-name" value="' + (pi.customerName || '') + '"><input type="hidden" id="edit-pi-total-amount" value="' + (pi.totalAmount || '0') + '"><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">客户</label><select id="edit-pi-customer" class="w-full px-3 py-2 border border-gray-300 rounded-md" disabled>' + customersHTML + '</select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">状态</label><select id="edit-pi-status" class="w-full px-3 py-2 border border-gray-300 rounded-md"><option value="待处理" ' + (pi.status === '待处理' ? 'selected' : '') + '>待处理</option><option value="已处理" ' + (pi.status === '已处理' ? 'selected' : '') + '>已处理</option></select></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">总金额</label><input type="text" id="edit-pi-total-display" class="w-full px-3 py-2 border border-gray-300 rounded-md" value="¥' + (pi.totalAmount || '0') + '" readonly></div><div class="mb-6"><label class="block text-sm font-medium text-gray-700 mb-1">备注</label><textarea id="edit-pi-note" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="3">' + (pi.note || '') + '</textarea></div><div class="mb-6"><h4 class="font-medium text-gray-900 mb-3">产品列表</h4><div id="edit-pi-product-list" data-products=\'' + JSON.stringify(products) + '\' data-pi-id=\'' + id + '\'></div><button onclick="addEditPIProductRow()" class="mt-3 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">添加产品</button></div><div class="flex justify-end space-x-4"><button onclick="closeModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">取消</button><button onclick="saveEditPI()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">保存</button></div></div></div></div>';
 
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         
@@ -3266,14 +3291,14 @@
       products.forEach(p => {
         const displayName = p.chineseName || p.englishName || p.id;
         const selected = existingProduct && (p.id === existingProduct.productId || p.id === existingProduct.id) ? ' selected' : '';
-        productsHTML += '<option value="' + p.id + '"' + selected + ' data-chinese-name="' + (p.chineseName || '') + '" data-english-name="' + (p.englishName || '') + '">' + displayName + '</option>';
+        productsHTML += '<option value="' + p.id + '"' + selected + ' data-chinese-name="' + (p.chineseName || '') + '" data-english-name="' + (p.englishName || '') + '" data-sales-price-less100="' + (p.salesPriceLess100 || '') + '" data-sales-price-more100="' + (p.salesPriceMore100 || '') + '">' + displayName + '</option>';
       });
 
       const productId = existingProduct ? (existingProduct.productId || existingProduct.id || '') : '';
       const quantity = existingProduct ? (existingProduct.quantity || 1) : 1;
-      const unitPrice = existingProduct ? (existingProduct.unitPrice || 0) : 0;
+      const unitPrice = existingProduct ? (existingProduct.salesPrice || existingProduct.unitPrice || 0) : 0;
 
-      let rowHTML = '<div class="border-b border-gray-200 py-4" data-index="' + rowIndex + '"><div class="grid grid-cols-5 gap-4"><div><label class="block text-xs text-gray-500">产品名称</label><select class="pi-product-select w-full px-2 py-1 text-sm border border-gray-300 rounded" onchange="onEditPIProductSelect(this, ' + rowIndex + ')">' + productsHTML + '</select></div><div><label class="block text-xs text-gray-500">产品ID</label><input type="text" class="pi-product-id w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" readonly value="' + productId + '"></div><div><label class="block text-xs text-gray-500">数量</label><input type="number" value="' + quantity + '" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">单价</label><input type="number" value="' + unitPrice + '" step="0.01" class="w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">操作</label><button onclick="removeEditPIProductRow(' + rowIndex + ')" class="text-red-600 hover:text-red-900">删除</button></div></div></div>';
+      let rowHTML = '<div class="border-b border-gray-200 py-4" data-index="' + rowIndex + '"><div class="grid grid-cols-5 gap-4"><div><label class="block text-xs text-gray-500">产品名称</label><select class="pi-product-select w-full px-2 py-1 text-sm border border-gray-300 rounded" onchange="onEditPIProductSelect(this, ' + rowIndex + ')">' + productsHTML + '</select></div><div><label class="block text-xs text-gray-500">产品ID</label><input type="text" class="pi-product-id w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" readonly value="' + productId + '"></div><div><label class="block text-xs text-gray-500">数量</label><input type="number" value="' + quantity + '" class="pi-product-quantity w-full px-2 py-1 text-sm border border-gray-300 rounded" onchange="onEditPIQuantityChange(this, ' + rowIndex + ')"></div><div><label class="block text-xs text-gray-500">单价</label><input type="number" value="' + unitPrice + '" step="0.01" class="pi-product-unit-price w-full px-2 py-1 text-sm border border-gray-300 rounded"></div><div><label class="block text-xs text-gray-500">操作</label><button onclick="removeEditPIProductRow(' + rowIndex + ')" class="text-red-600 hover:text-red-900">删除</button></div></div></div>';
 
       container.insertAdjacentHTML('beforeend', rowHTML);
     }
@@ -3282,21 +3307,39 @@
       const container = document.getElementById('edit-pi-product-list');
       const row = container.querySelector('[data-index="' + index + '"]');
       const productIdInput = row.querySelector('.pi-product-id');
-      const unitPriceInput = row.querySelector('input[type="number"]:nth-child(2)');
+      const unitPriceInput = row.querySelector('.pi-product-unit-price');
+      const quantityInput = row.querySelector('.pi-product-quantity');
       
       const selectedOption = selectElement.options[selectElement.selectedIndex];
       if (selectedOption.value) {
         productIdInput.value = selectedOption.value;
         
-        // 从产品列表中获取价格
-        const products = JSON.parse(container.dataset.products || '[]');
-        const selectedProduct = products.find(p => p.id === selectedOption.value);
-        if (selectedProduct && selectedProduct.salesPrice) {
-          unitPriceInput.value = selectedProduct.salesPrice;
-        }
+        const salesPriceLess100 = parseFloat(selectedOption.dataset.salesPriceLess100) || 0;
+        const salesPriceMore100 = parseFloat(selectedOption.dataset.salesPriceMore100) || 0;
+        const quantity = parseInt(quantityInput.value) || 1;
+        
+        // 根据数量选择对应的销售价
+        const salesPrice = quantity < 100 ? salesPriceLess100 : salesPriceMore100;
+        unitPriceInput.value = salesPrice ? salesPrice.toFixed(2) : '';
       } else {
         productIdInput.value = '';
-        unitPriceInput.value = 0;
+        unitPriceInput.value = '';
+      }
+    }
+    
+    function onEditPIQuantityChange(inputElement, index) {
+      const row = inputElement.closest('[data-index]');
+      const select = row.querySelector('.pi-product-select');
+      const unitPriceInput = row.querySelector('.pi-product-unit-price');
+      
+      const selectedOption = select.options[select.selectedIndex];
+      if (selectedOption.value) {
+        const salesPriceLess100 = parseFloat(selectedOption.dataset.salesPriceLess100) || 0;
+        const salesPriceMore100 = parseFloat(selectedOption.dataset.salesPriceMore100) || 0;
+        const quantity = parseInt(inputElement.value) || 1;
+        
+        const salesPrice = quantity < 100 ? salesPriceLess100 : salesPriceMore100;
+        unitPriceInput.value = salesPrice ? salesPrice.toFixed(2) : '';
       }
     }
     
